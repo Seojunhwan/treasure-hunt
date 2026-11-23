@@ -6,11 +6,18 @@ function makeLabel(text) {
   const c = document.createElement('canvas');
   c.width = 256; c.height = 64;
   const g = c.getContext('2d');
-  g.font = 'bold 34px system-ui, sans-serif';
-  g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.lineWidth = 6; g.strokeStyle = 'rgba(0,0,0,.6)'; g.strokeText(text, 128, 32);
-  g.fillStyle = '#fff'; g.fillText(text, 128, 32);
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthWrite: false }));
+  const tex = new THREE.CanvasTexture(c);
+  const draw = () => {
+    g.clearRect(0, 0, 256, 64);
+    g.font = '36px Jua, system-ui, sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.lineWidth = 7; g.strokeStyle = 'rgba(20,14,10,.75)'; g.strokeText(text, 128, 34);
+    g.fillStyle = '#fbf3e2'; g.fillText(text, 128, 34);
+    tex.needsUpdate = true;
+  };
+  draw();
+  document.fonts.load('36px Jua', text).then(draw); // redraw once the needed font slices arrive
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false }));
   sprite.scale.set(2, 0.5, 1);
   sprite.position.y = 2.1;
   return sprite;

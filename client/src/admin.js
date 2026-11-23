@@ -1,4 +1,5 @@
 import { io } from 'socket.io-client';
+import QRCode from 'qrcode';
 import { mmss } from './format.js';
 import { TREASURE_COUNT } from '../../shared/map.js';
 
@@ -19,6 +20,7 @@ socket.on('connect', () => {
     $('error').hidden = true;
     $('app').hidden = false;
     $('url').textContent = res.joinUrl;
+    QRCode.toString(res.joinUrl, { type: 'svg', margin: 0, color: { dark: '#2b1d14', light: '#fbf3e2' } }).then((svg) => { $('qr').innerHTML = svg; }); // svg is generated locally, not user input
   });
 });
 socket.on('disconnect', () => { $('phase').textContent = '서버 연결이 끊겼어요. 다시 연결하는 중…'; $('phase').className = 'ribbon'; });
