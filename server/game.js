@@ -1,32 +1,47 @@
 import { randomUUID, timingSafeEqual, createHash } from 'node:crypto';
-import { MOVE_SPEED, NAME_MAX, SPEED_TOLERANCE, PICKUP_RADIUS, PICKUP_TOLERANCE, PICKUP_HEIGHT, RANKING_SIZE } from '../shared/constants.js';
-import { SPAWN, TREASURES } from '../shared/map.js';
+import { MOVE_SPEED, NAME_MAX, SPEED_TOLERANCE, PICKUP_RADIUS, PICKUP_TOLERANCE, PICKUP_HEIGHT, RANKING_SIZE, MIN_QUESTIONS, QUIZ_SECONDS } from '../shared/constants.js';
+import { SPAWN, TREASURE_SPOTS } from '../shared/map.js';
 import { clampToCircle, lineOfSight } from '../shared/collision.js';
 
+const QUIZ_MS = QUIZ_SECONDS * 1000;
+const QUIZ_GRACE = 1500; // network slack on the 20 s answer window
+
 // phase: 'waiting' (stuck in spawn plaza) → 'playing' → 'ended'
-export function createGame(durationMs) {
+// One gift per quiz question, laid out on a random subset of the hiding spots when the game starts.
+export function createGame(durationMs, questions = []) {
   return {
     phase: 'waiting', durationMs, endsAt: 0,
     players: new Map(), // keyed by secret token
-    treasures: TREASURES.map((t) => ({ ...t, foundBy: null })),
+    questions,
+    treasures: [],
   };
 }
 
-export function start(state, now) {
-  if (state.phase !== 'waiting') return false;
+export function setQuestions(state, list) { state.questions = list; }
+
+// Returns { ok: true } or { error } (shown to the admin).
+export function start(state, now, rand = Math.random) {
+  if (state.phase !== 'waiting') return { error: '대기 중일 때만 시작할 수 있어요' };
+  const n = state.questions.length;
+  if (n < MIN_QUESTIONS) return { error: `문제가 최소 ${MIN_QUESTIONS}개 필요해요 (지금 ${n}개)` };
+  if (n > TREASURE_SPOTS.length) return { error: `문제는 최대 ${TREASURE_SPOTS.length}개까지예요 (지금 ${n}개)` };
+  const spots = TREASURE_SPOTS.map((_, i) => [rand(), i]).sort((a, b) => a[0] - b[0]).slice(0, n).map(([, i]) => TREASURE_SPOTS[i]);
+  state.treasures = state.questions.map((q, id) => ({ id, ...spots[id], qid: q.id, foundBy: null }));
   state.phase = 'playing';
   state.endsAt = now + state.durationMs;
-  for (const p of state.players.values()) p.lastMoveAt = now; // leaving the plaza is not a teleport
-  return true;
+  for (const p of state.players.values()) { p.lastMoveAt = now; p.attempts = new Map(); p.tried = new Set(); } // leaving the plaza is not a teleport
+  return { ok: true };
 }
+
+export const treasureLayout = (state) => state.treasures.map(({ id, x, y, z }) => ({ id, x, y, z }));
 
 // Back to the plaza with zero scores. Returns the players whose position the server changed.
 export function reset(state) {
   state.phase = 'waiting';
   state.endsAt = 0;
-  for (const t of state.treasures) t.foundBy = null;
+  state.treasures = [];
   for (const p of state.players.values()) {
-    Object.assign(p, spawnPoint(), { y: 0, score: 0, scoredAt: 0 });
+    Object.assign(p, spawnPoint(), { y: 0, score: 0, scoredAt: 0, attempts: new Map(), tried: new Set() });
   }
   return [...state.players.values()];
 }
@@ -78,6 +93,8 @@ export function join(state, { token, name }, now) {
     token: t, id: randomUUID().slice(0, 8), name: uniqueName(state, clean, t),
     ...spawnPoint(), y: 0, ry: 0,
     score: 0, scoredAt: 0, lastMoveAt: now, online: true,
+    attempts: new Map(), // treasure id -> when its quiz was opened
+    tried: new Set(), // treasure ids this player answered wrong (no second chance)
   };
   state.players.set(t, player);
   return { player };
@@ -97,20 +114,45 @@ export function move(state, player, msg, now) {
   return true;
 }
 
-// First request to arrive wins: Node handles one message at a time, so there is no race here.
-// Returns 'ok' | 'taken' | 'far' | 'invalid'.
-export function tryPickup(state, player, treasureId, now) {
-  const t = state.treasures[treasureId];
-  if (state.phase !== 'playing' || !t || !Number.isInteger(treasureId)) return 'invalid';
-  if (t.foundBy) return 'taken';
-  if (Math.hypot(player.x - t.x, player.z - t.z) > PICKUP_RADIUS + PICKUP_TOLERANCE) return 'far';
-  if (Math.abs((player.y ?? 0) - t.y) > PICKUP_HEIGHT) return 'far';
-  if (!lineOfSight([player.x, (player.y ?? 0) + 1.2, player.z], [t.x, t.y + 0.4, t.z])) return 'far'; // no grabbing through walls
-  t.foundBy = player.id;
-  player.score += 1;
-  player.scoredAt = now; // earlier wins a tie
-  if (state.treasures.every((x) => x.foundBy)) state.phase = 'ended';
-  return 'ok';
+const treasureOf = (state, id) => (Number.isInteger(id) ? state.treasures[id] : undefined);
+const questionOf = (state, t) => state.questions.find((q) => q.id === t.qid);
+
+// Tapping a gift opens its quiz. No lock: several people may answer the same gift at once,
+// and the first correct answer to reach the server takes it.
+// Returns { result: 'quiz', question, choices, remainingMs } or { result: 'taken' | 'tried' | 'far' | 'invalid' }.
+export function openTreasure(state, player, id, now) {
+  const t = treasureOf(state, id);
+  if (state.phase !== 'playing' || !t) return { result: 'invalid' };
+  if (t.foundBy) return { result: 'taken' };
+  if (player.tried.has(id)) return { result: 'tried' };
+  if (Math.hypot(player.x - t.x, player.z - t.z) > PICKUP_RADIUS + PICKUP_TOLERANCE) return { result: 'far' };
+  if (Math.abs((player.y ?? 0) - t.y) > PICKUP_HEIGHT) return { result: 'far' };
+  if (!lineOfSight([player.x, (player.y ?? 0) + 1.2, player.z], [t.x, t.y + 0.4, t.z])) return { result: 'far' }; // no grabbing through walls
+  if (!player.attempts.has(id)) player.attempts.set(id, now); // reopening keeps the original clock
+  const left = QUIZ_MS - (now - player.attempts.get(id));
+  if (left <= 0) { player.tried.add(id); return { result: 'tried' }; } // closed the app to dodge the timer
+  const q = questionOf(state, t);
+  return { result: 'quiz', question: q.q, choices: q.choices, remainingMs: left };
+}
+
+// Returns { result: 'ok' } | { result: 'wrong', answer, explain } | { result: 'taken' | 'tried' | 'invalid' }.
+// choice = null means the timer ran out.
+export function answerTreasure(state, player, id, choice, now) {
+  const t = treasureOf(state, id);
+  if (state.phase !== 'playing' || !t || !player.attempts.has(id)) return { result: 'invalid' };
+  if (player.tried.has(id)) return { result: 'tried' };
+  if (t.foundBy) return { result: 'taken' };
+  const q = questionOf(state, t);
+  const late = now - player.attempts.get(id) > QUIZ_MS + QUIZ_GRACE;
+  if (!late && choice === q.answer) {
+    t.foundBy = player.id;
+    player.score += 1;
+    player.scoredAt = now; // earlier wins a tie
+    if (state.treasures.every((x) => x.foundBy)) state.phase = 'ended';
+    return { result: 'ok' };
+  }
+  player.tried.add(id); // one shot per gift; others can still take it
+  return { result: 'wrong', answer: q.choices[q.answer], explain: q.explain, timeout: late || choice === null };
 }
 
 // Score high → low; on a tie whoever reached that score first ranks higher.
@@ -129,6 +171,8 @@ export function snapshot(state, now) {
     remainingMs: remainingMs(state, now),
     players,
     found: state.treasures.filter((t) => t.foundBy).map((t) => t.id),
+    treasureCount: state.treasures.length,
+    questionCount: state.questions.length,
     // full list once it's over so every phone can find its own rank
     ranking: state.phase === 'ended' ? ranking(state) : ranking(state).slice(0, RANKING_SIZE),
   };

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>송년 보물찾기 · 문제 관리</title>
+  <link rel="stylesheet" href="/fonts/jua/jua.css" />
+  <style>
+    :root { --ink: #2b1d14; --paper: #fbf3e2; --paper-edge: #e6d6b8; --red: #b8283c; --red-dark: #7e1526; --pine: #1f3d2f; --gold: #f2c14e; --gold-dark: #b8862a; --night: #0b1220; --display: 'Jua', system-ui, sans-serif; }
+    body { margin: 0; min-height: 100vh; background: radial-gradient(ellipse at 50% 0, #2a3360 0, var(--night) 60%) fixed; color: var(--paper); font-family: var(--display); }
+    [hidden] { display: none !important; }
+    header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 14px 24px; background: rgba(11,18,32,.92); border-bottom: 1px solid rgba(251,243,226,.12); }
+    h1 { margin: 0; font-weight: 400; font-size: 26px; }
+    #count { font-size: 17px; padding: 4px 12px; border-radius: 999px; background: var(--pine); }
+    #count.warn { background: var(--gold); color: var(--ink); }
+    .spacer { flex: 1; }
+    button, a.btn { font: 17px var(--display); border-radius: 10px; padding: 9px 16px; cursor: pointer; border: 0; text-decoration: none; }
+    .primary { background: var(--gold); color: var(--ink); box-shadow: inset 0 -3px 0 var(--gold-dark); }
+    .primary:disabled { background: #3a4462; color: #8c95b0; box-shadow: none; cursor: default; }
+    .soft { background: rgba(251,243,226,.1); color: var(--paper); border: 1px solid rgba(251,243,226,.3); }
+    #msg { width: 100%; margin: 0; font-size: 15px; color: #c9d0e6; }
+    #msg.err { color: #ffb4b4; } #msg.ok { color: #9ee6b0; }
+    main { max-width: 860px; margin: 0 auto; padding: 20px 20px 80px; }
+    .q { position: relative; margin: 0 0 18px; padding: 18px 20px 16px; background: var(--paper); color: var(--ink); border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+    .q::after { content: ''; position: absolute; inset: 6px; border: 2px dashed var(--paper-edge); border-radius: 10px; pointer-events: none; }
+    .q > * { position: relative; z-index: 1; }
+    .q .head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .q .num { font-size: 18px; color: var(--red); }
+    .q .head .spacer { flex: 1; }
+    .q .del { background: transparent; color: var(--red); border: 1px solid var(--red); padding: 4px 10px; font-size: 14px; }
+    textarea, input[type=text] { width: 100%; box-sizing: border-box; font: 17px var(--display); color: var(--ink); background: #fff; border: 2px solid var(--paper-edge); border-radius: 8px; padding: 8px 10px; }
+    textarea { min-height: 56px; resize: vertical; }
+    textarea:focus, input[type=text]:focus { outline: none; border-color: var(--gold-dark); }
+    .choices { display: grid; gap: 6px; margin: 10px 0; }
+    .choice { display: flex; align-items: center; gap: 8px; }
+    .choice label { flex: none; display: flex; align-items: center; gap: 4px; font-size: 14px; color: #7c6a52; cursor: pointer; white-space: nowrap; }
+    .choice input[type=radio] { width: 18px; height: 18px; accent-color: var(--pine); }
+    .choice.right input[type=text] { border-color: var(--pine); background: #eef7f0; }
+    .choice .x { flex: none; background: transparent; color: #a8957a; padding: 4px 8px; font-size: 18px; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .row .soft { color: var(--ink); background: transparent; border-color: var(--paper-edge); font-size: 14px; padding: 6px 12px; }
+    .explain { margin-top: 6px; }
+    .explain input { font-size: 15px; }
+    .adders { display: flex; gap: 10px; justify-content: center; }
+    #error { max-width: 600px; margin: 20vh auto; text-align: center; font-size: 20px; color: #ffb4b4; }
+  </style>
+</head>
+<body>
+  <p id="error" role="alert" hidden></p>
+  <div id="app" hidden>
+    <header>
+      <h1>문제 관리</h1>
+      <span id="count"></span>
+      <span class="spacer"></span>
+      <a id="back" class="btn soft" href="#">큰 화면으로</a>
+      <button id="save" class="primary" type="button">저장</button>
+      <p id="msg" role="status"></p>
+    </header>
+    <main>
+      <div id="list"></div>
+      <div class="adders">
+        <button id="add" class="soft" type="button">+ 객관식 문제</button>
+        <button id="addOx" class="soft" type="button">+ OX 문제</button>
+      </div>
+    </main>
+  </div>
+  <script type="module" src="/src/questions.js"></script>
+</body>
+</html>

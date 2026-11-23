@@ -3,7 +3,6 @@
 export const S = 2.5; // one Kenney kit tile, in metres
 export const MAP_HALF = 50; // playable area spans -50..50 on x and z
 export const SPAWN = { x: 0, z: 0, r: 8 };
-export const TREASURE_COUNT = 40;
 const T = 0.3; // collider wall thickness
 const DOOR = 1.4; // door gap width
 
@@ -181,8 +180,10 @@ for (const t of TOWERS) {
 for (const p of PROPS) if (p.box) COLLIDERS.push(box(p, p.rot ?? 0, 0, 0, ...p.box));
 for (const l of LAMPS) COLLIDERS.push(box(l, 0, 0, 0, 0.35, 0.35, 3));
 
-// --- treasures ----------------------------------------------------------------
+// --- treasure spots ----------------------------------------------------------------
 // Hiding spots, written relative to the structures so they follow if a house moves.
+// Each game places one gift per quiz question on a random subset of these, so the number of
+// spots is the most questions a game can use.
 const inHouse = (i, lx, lz) => { const h = HOUSES[i]; const [dx, dz] = rot(h.rot, lx, lz); return { x: h.x + dx, z: h.z + dz, y: 0 }; };
 const behindHouse = (i, lx = 0) => { const h = HOUSES[i]; return inHouse(i, lx, -houseSize(h).d / 2 - 1.2); };
 const onTower = (i, lx = 1, lz = -1) => { const t = TOWERS[i]; const [dx, dz] = rot(t.rot, lx, lz); return { x: t.x + dx, z: t.z + dz, y: S }; };
@@ -206,5 +207,9 @@ const SPOTS = [
   at(-9, -35), at(9, 26.5), at(-26, -9), at(35.5, 9), at(-9, 35),
   // market, props, edges
   at(22, -38.4), at(28, -24.6), at(41.6, -24.5), at(-24, 26.8), at(26, 22), at(-39.5, -26), at(-44.5, 44.5), at(22, 42.2),
+  // second batch (2026-11-24): one more per open house, more backs of houses, more props
+  inHouse(1, 0.3, -1.9), inHouse(5, 1.8, 1.6), inHouse(10, 1.75, -1.9), inHouse(12, 0.3, 2.1), inHouse(18, -1.9, 1.5), inHouse(21, 0.2, 1.6),
+  behindHouse(2, 1.2), behindHouse(5, -1.2), behindHouse(11), behindHouse(15, -1.2), behindHouse(19), behindHouse(26, 1.2),
+  at(31, -28), at(17.3, -24), at(-24, 22.4), at(0, -16.6), at(-36, -44.4), at(46, -44), at(20, 37.8), at(-4, -22.2),
 ];
-export const TREASURES = SPOTS.map((p, id) => ({ id, x: +p.x.toFixed(2), z: +p.z.toFixed(2), y: p.y }));
+export const TREASURE_SPOTS = SPOTS.map((p) => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2), y: p.y }));

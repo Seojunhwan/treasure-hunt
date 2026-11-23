@@ -1,10 +1,13 @@
 import { test, expect } from 'vitest';
-import { createGame as create, join, move, snapshot, start, reset, tick, remainingMs, isAdminToken, tryPickup, ranking } from '../server/game.js';
-import { SPAWN, TREASURE_COUNT } from '../shared/map.js';
+import { createGame as create, join, move, snapshot, start, reset, tick, remainingMs, isAdminToken, openTreasure, answerTreasure, ranking } from '../server/game.js';
+import { SPAWN, TREASURE_SPOTS } from '../shared/map.js';
+import { MIN_QUESTIONS } from '../shared/constants.js';
+import { validateQuestions } from '../server/questions.js';
 
 const T0 = 1_000_000;
 const MIN15 = 15 * 60 * 1000;
-const createGame = () => create(MIN15);
+const QS = (n = MIN_QUESTIONS) => Array.from({ length: n }, (_, i) => ({ id: 'q' + i, q: '문제 ' + i, choices: ['가', '나', '다'], answer: i % 3, explain: '설명 ' + i }));
+const createGame = (n) => create(MIN15, QS(n));
 
 test('join validates nickname length', () => {
   const g = createGame();
@@ -78,8 +81,8 @@ test('snapshot lists online players only and never leaks tokens', () => {
 test('start → 15 min countdown → ended, and only from waiting', () => {
   const g = createGame();
   expect(remainingMs(g, T0)).toBe(MIN15);
-  expect(start(g, T0)).toBe(true);
-  expect(start(g, T0 + 10)).toBe(false);
+  expect(start(g, T0).ok).toBe(true);
+  expect(start(g, T0 + 10).error).toBeTruthy();
   expect(remainingMs(g, T0 + 60_000)).toBe(MIN15 - 60_000);
   expect(tick(g, T0 + MIN15 - 1)).toBe(false);
   expect(tick(g, T0 + MIN15)).toBe(true);
@@ -119,34 +122,100 @@ test('admin token check', () => {
   expect(isAdminToken(undefined, 'secret')).toBe(false);
 });
 
-const playing = () => { const g = createGame(); start(g, T0); return g; };
+const playing = (n) => { const g = createGame(n); start(g, T0); return g; };
 const standOn = (p, t) => Object.assign(p, { x: t.x, z: t.z, y: t.y });
+const right = (g, id) => g.questions.find((q) => q.id === g.treasures[id].qid).answer;
+const wrong = (g, id) => (right(g, id) + 1) % 3;
 
-test('pickup: only while playing, only when near', () => {
-  const g = createGame();
-  const p = join(g, { name: 'a' }, T0).player;
-  const t = g.treasures[0];
-  standOn(p, t);
-  expect(tryPickup(g, p, 0, T0)).toBe('invalid'); // waiting
-  start(g, T0);
-  Object.assign(p, { x: t.x + 5, z: t.z, y: t.y });
-  expect(tryPickup(g, p, 0, T0)).toBe('far');
-  Object.assign(p, { x: t.x, z: t.z, y: t.y + 3 });
-  expect(tryPickup(g, p, 0, T0)).toBe('far'); // right below/above doesn't count
-  standOn(p, t);
-  expect(tryPickup(g, p, 0, T0)).toBe('ok');
-  expect(p.score).toBe(1);
-  expect(tryPickup(g, p, 999, T0)).toBe('invalid');
-  expect(tryPickup(g, p, '1', T0)).toBe('invalid');
+test('start needs at least 25 questions and lays out one gift per question', () => {
+  const few = createGame(MIN_QUESTIONS - 1);
+  expect(start(few, T0).error).toMatch(/25/);
+  expect(few.phase).toBe('waiting');
+  const g = createGame(30);
+  expect(start(g, T0).ok).toBe(true);
+  expect(g.treasures).toHaveLength(30);
+  const keys = new Set(g.treasures.map((t) => t.x + ',' + t.z + ',' + t.y));
+  expect(keys.size).toBe(30); // all on different spots
+  expect(start(createGame(TREASURE_SPOTS.length + 1), T0).error).toBeTruthy();
 });
 
-test('pickup: two players on the same treasure, exactly one scores', () => {
+test('quiz: opening shows the question but never the answer', () => {
+  const g = playing();
+  const p = join(g, { name: 'a' }, T0).player;
+  standOn(p, g.treasures[0]);
+  const r = openTreasure(g, p, 0, T0);
+  expect(r.result).toBe('quiz');
+  expect(r.choices).toEqual(['가', '나', '다']);
+  expect(JSON.stringify(r)).not.toMatch(/answer|설명/);
+});
+
+test('quiz: must be near, on the same floor, and not before the start', () => {
+  const g = createGame();
+  const p = join(g, { name: 'a' }, T0).player;
+  expect(openTreasure(g, p, 0, T0).result).toBe('invalid'); // waiting: no gifts yet
+  start(g, T0);
+  const t = g.treasures[0];
+  Object.assign(p, { x: t.x + 5, z: t.z, y: t.y });
+  expect(openTreasure(g, p, 0, T0).result).toBe('far');
+  Object.assign(p, { x: t.x, z: t.z, y: t.y + 3 });
+  expect(openTreasure(g, p, 0, T0).result).toBe('far');
+  expect(openTreasure(g, p, 999, T0).result).toBe('invalid');
+  expect(openTreasure(g, p, '1', T0).result).toBe('invalid');
+});
+
+test('quiz: right answer takes the gift', () => {
+  const g = playing();
+  const p = join(g, { name: 'a' }, T0).player;
+  standOn(p, g.treasures[2]);
+  openTreasure(g, p, 2, T0);
+  expect(answerTreasure(g, p, 2, right(g, 2), T0 + 3000).result).toBe('ok');
+  expect(p.score).toBe(1);
+  expect(snapshot(g, T0).found).toEqual([2]);
+});
+
+test('quiz: wrong answer = no second chance for that player, but others can still take it', () => {
+  const g = playing();
+  const a = join(g, { name: 'a' }, T0).player, b = join(g, { name: 'b' }, T0).player;
+  standOn(a, g.treasures[1]); standOn(b, g.treasures[1]);
+  openTreasure(g, a, 1, T0);
+  const r = answerTreasure(g, a, 1, wrong(g, 1), T0 + 1000);
+  expect(r).toMatchObject({ result: 'wrong', answer: ['가', '나', '다'][right(g, 1)], explain: '설명 1' });
+  expect(openTreasure(g, a, 1, T0 + 2000).result).toBe('tried');
+  expect(answerTreasure(g, a, 1, right(g, 1), T0 + 2000).result).toBe('tried');
+  openTreasure(g, b, 1, T0 + 2000);
+  expect(answerTreasure(g, b, 1, right(g, 1), T0 + 3000).result).toBe('ok');
+});
+
+test('quiz: no lock, first correct answer wins, the slower one hears "taken"', () => {
   const g = playing();
   const a = join(g, { name: 'a' }, T0).player, b = join(g, { name: 'b' }, T0).player;
   standOn(a, g.treasures[3]); standOn(b, g.treasures[3]);
-  const results = [tryPickup(g, a, 3, T0 + 1), tryPickup(g, b, 3, T0 + 1)];
-  expect(results).toEqual(['ok', 'taken']);
+  expect(openTreasure(g, a, 3, T0).result).toBe('quiz');
+  expect(openTreasure(g, b, 3, T0 + 10).result).toBe('quiz');
+  expect(answerTreasure(g, b, 3, right(g, 3), T0 + 2000).result).toBe('ok');
+  expect(answerTreasure(g, a, 3, right(g, 3), T0 + 2100).result).toBe('taken');
   expect(a.score + b.score).toBe(1);
+});
+
+test('quiz: 20 s limit — late or timed-out answers count as wrong, reopening keeps the clock', () => {
+  const g = playing();
+  const p = join(g, { name: 'a' }, T0).player;
+  standOn(p, g.treasures[4]);
+  openTreasure(g, p, 4, T0);
+  expect(openTreasure(g, p, 4, T0 + 15000).remainingMs).toBe(5000);
+  expect(answerTreasure(g, p, 4, right(g, 4), T0 + 22000)).toMatchObject({ result: 'wrong', timeout: true });
+  standOn(p, g.treasures[5]);
+  openTreasure(g, p, 5, T0);
+  expect(answerTreasure(g, p, 5, null, T0 + 20000)).toMatchObject({ result: 'wrong', timeout: true });
+  standOn(p, g.treasures[6]);
+  openTreasure(g, p, 6, T0);
+  expect(openTreasure(g, p, 6, T0 + 21000).result).toBe('tried'); // closed the app and came back
+});
+
+test('quiz: answering without opening is refused', () => {
+  const g = playing();
+  const p = join(g, { name: 'a' }, T0).player;
+  expect(answerTreasure(g, p, 0, 0, T0).result).toBe('invalid');
 });
 
 test('ranking: score desc, tie goes to who got there first, zero scores hidden', () => {
@@ -158,12 +227,16 @@ test('ranking: score desc, tie goes to who got there first, zero scores hidden',
   expect(ranking(g).map((r) => [r.rank, r.name])).toEqual([[1, 'b'], [2, 'a']]);
 });
 
-test('all 40 found ends the game early', () => {
+test('all gifts found ends the game early', () => {
   const g = playing();
   const p = join(g, { name: 'a' }, T0).player;
-  for (const t of g.treasures) { standOn(p, t); expect(tryPickup(g, p, t.id, T0 + 10)).toBe('ok'); }
+  for (const t of g.treasures) {
+    standOn(p, t);
+    openTreasure(g, p, t.id, T0 + 10);
+    expect(answerTreasure(g, p, t.id, right(g, t.id), T0 + 20).result).toBe('ok');
+  }
   expect(g.phase).toBe('ended');
-  expect(p.score).toBe(TREASURE_COUNT);
+  expect(p.score).toBe(MIN_QUESTIONS);
 });
 
 test('snapshot: top 10 while playing, everyone once ended', () => {
@@ -174,11 +247,25 @@ test('snapshot: top 10 while playing, everyone once ended', () => {
   expect(snapshot(g, T0 + MIN15).ranking).toHaveLength(15);
 });
 
-test('reset restores every treasure', () => {
+test('reset clears the gifts and everyone\'s quiz history', () => {
   const g = playing();
   const p = join(g, { name: 'a' }, T0).player;
-  standOn(p, g.treasures[0]); tryPickup(g, p, 0, T0);
+  standOn(p, g.treasures[0]); openTreasure(g, p, 0, T0); answerTreasure(g, p, 0, wrong(g, 0), T0);
   reset(g);
-  expect(g.treasures.every((t) => t.foundBy === null)).toBe(true);
+  expect(g.treasures).toEqual([]);
+  expect(p.tried.size).toBe(0);
+  start(g, T0 + 1000);
+  standOn(p, g.treasures[0]);
+  expect(openTreasure(g, p, 0, T0 + 1000).result).toBe('quiz');
 });
 
+test('question bank validation (admin input)', () => {
+  expect(validateQuestions(QS(3)).list).toHaveLength(3);
+  expect(validateQuestions('x').error).toBeTruthy();
+  expect(validateQuestions([{ q: '', choices: ['a', 'b'], answer: 0 }]).error).toMatch(/1번/);
+  expect(validateQuestions([{ q: 'q', choices: ['a'], answer: 0 }]).error).toMatch(/보기/);
+  expect(validateQuestions([{ q: 'q', choices: ['a', 'a'], answer: 0 }]).error).toMatch(/같은 보기/);
+  expect(validateQuestions([{ q: 'q', choices: ['a', 'b'], answer: 2 }]).error).toMatch(/정답/);
+  expect(validateQuestions([{ q: '  공백   정리 ', choices: [' a ', 'b'], answer: 1 }]).list[0]).toMatchObject({ q: '공백 정리', choices: ['a', 'b'] });
+  expect(validateQuestions(QS(TREASURE_SPOTS.length + 1)).error).toMatch(/최대/);
+});

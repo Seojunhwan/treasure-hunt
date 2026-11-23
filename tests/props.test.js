@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest';
 import { BODIES } from '../client/src/game/physics.js';
-import { TREASURES } from '../shared/map.js';
+import { TREASURE_SPOTS as TREASURES } from '../shared/map.js';
 import { resolveCollision } from '../shared/collision.js';
 
 test('pushable props start in free space', () => {

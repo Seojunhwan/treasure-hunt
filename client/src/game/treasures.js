@@ -1,47 +1,62 @@
 import * as THREE from 'three';
-import { TREASURES } from '../../../shared/map.js';
 import { load } from './kit.js';
 import { softDot } from './fx.js';
 
 const LOOKS = ['present-a-cube', 'present-b-cube', 'present-a-round', 'present-b-round', 'present-a-rectangle', 'present-b-rectangle'];
+const MAX = 64;
 
 // Gift boxes from the Holiday Kit: they float, turn and glow so a sharp eye can spot them.
+// The server decides where they are each game (one per quiz question), so the set is rebuilt on start.
 export function createTreasures(scene, fx) {
-  const items = TREASURES.map((t) => {
-    const g = new THREE.Group();
-    g.position.set(t.x, t.y, t.z);
-    scene.add(g);
-    load('holiday-kit', LOOKS[t.id % LOOKS.length]).then((o) => { o.scale.setScalar(1.6); g.add(o); });
-    return { t, g, pop: 0 };
-  });
-  const haloPos = new Float32Array(TREASURES.flatMap((t) => [t.x, t.y + 0.5, t.z]));
+  let items = [];
+  const haloPos = new Float32Array(MAX * 3).fill(-999);
   const haloGeo = new THREE.BufferGeometry();
   haloGeo.setAttribute('position', new THREE.BufferAttribute(haloPos, 3));
   const haloMat = new THREE.PointsMaterial({ map: softDot('rgba(255,215,120,0.85)'), size: 1.5, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
-  scene.add(new THREE.Points(haloGeo, haloMat));
-  const setHalo = (id, on) => { haloPos[id * 3 + 1] = on ? TREASURES[id].y + 0.5 : -999; haloGeo.attributes.position.needsUpdate = true; };
-  const hide = (id) => { items[id].g.visible = false; items[id].pop = 0; setHalo(id, false); };
+  const halos = new THREE.Points(haloGeo, haloMat);
+  halos.frustumCulled = false;
+  scene.add(halos);
+  const setHalo = (it, on) => { haloPos.set(on ? [it.t.x, it.t.y + 0.5, it.t.z] : [0, -999, 0], it.slot * 3); haloGeo.attributes.position.needsUpdate = true; };
+  const hide = (it) => { it.g.visible = false; it.pop = 0; setHalo(it, false); };
+  const byId = (id) => items.find((it) => it.t.id === id);
 
   return {
+    // list: [{ id, x, y, z }] for this game; [] before the start
+    setLayout(list) {
+      for (const it of items) scene.remove(it.g);
+      haloPos.fill(-999);
+      items = list.slice(0, MAX).map((t, slot) => {
+        const g = new THREE.Group();
+        g.position.set(t.x, t.y, t.z);
+        scene.add(g);
+        load('holiday-kit', LOOKS[t.id % LOOKS.length]).then((o) => { o.scale.setScalar(1.6); g.add(o); });
+        const it = { t, g, slot, pop: 0, tried: false };
+        setHalo(it, true);
+        return it;
+      });
+    },
     setFound(ids) {
       const found = new Set(ids);
-      for (const it of items) {
-        const isFound = found.has(it.t.id);
-        if (isFound && it.g.visible && !it.pop) hide(it.t.id);
-        if (!isFound && !it.g.visible) { it.g.visible = true; it.g.scale.setScalar(1); setHalo(it.t.id, true); } // after a reset
-      }
+      for (const it of items) if (found.has(it.t.id) && it.g.visible && !it.pop) hide(it);
     },
-    // pop + confetti, then gone
+    // a gift this player already got wrong: greyed out, no glow, no open button
+    markTried(id) {
+      const it = byId(id);
+      if (!it || it.tried) return;
+      it.tried = true;
+      setHalo(it, false);
+      it.g.traverse((o) => { if (o.isMesh) { o.material = o.material.clone(); o.material.color.multiplyScalar(0.35); } });
+    },
     collect(id) {
-      const it = items[id];
-      if (!it.g.visible || it.pop) return;
+      const it = byId(id);
+      if (!it || !it.g.visible || it.pop) return;
       it.pop = 0.001;
       fx.burst(it.t.x, it.t.y + 0.6, it.t.z);
     },
     nearest(x, z) {
       let best = null;
-      for (const { t, g, pop } of items) {
-        if (!g.visible || pop) continue;
+      for (const { t, g, pop, tried } of items) {
+        if (!g.visible || pop || tried) continue;
         const dist = Math.hypot(t.x - x, t.z - z);
         if (!best || dist < best.dist) best = { id: t.id, dist, x: t.x, y: t.y, z: t.z };
       }
@@ -54,7 +69,7 @@ export function createTreasures(scene, fx) {
         if (it.pop) {
           it.pop += dt;
           it.g.scale.setScalar(1 + it.pop * 4);
-          if (it.pop > 0.18) hide(it.t.id);
+          if (it.pop > 0.18) hide(it);
           continue;
         }
         it.g.rotation.y = now * 0.0008 + it.t.id;

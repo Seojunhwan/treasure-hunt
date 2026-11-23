@@ -101,6 +101,28 @@
     #result .mine { font-size: 22px; margin-top: 4px; }
     #result .sub { font: 15px var(--display); color: #7c6a52; margin-top: 10px; }
 
+    /* --- quiz --- */
+    #quiz { z-index: 6; background: rgba(8,12,28,.55); }
+    #quiz .card { width: min(640px, 86vw); padding: 26px 24px 18px; }
+    #quiz .title { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); padding: 5px 28px; background: var(--pine); color: var(--paper); font-size: 18px; white-space: nowrap;
+      clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 50%, 100% 100%, 0 100%, 12px 50%); }
+    #quiz .q { position: relative; z-index: 1; margin: 4px 4px 14px; font-size: 21px; line-height: 1.4; text-align: center; }
+    .choices { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .choices.n3 { grid-template-columns: repeat(3, 1fr); }
+    .choices button { font: 18px var(--display); color: var(--ink); background: #fff; border: 2px solid var(--paper-edge); border-radius: 10px; padding: 12px 8px; min-height: 52px; touch-action: none; box-shadow: inset 0 -3px 0 var(--paper-edge); }
+    .choices button:active, .choices button.picked { background: var(--gold); border-color: var(--gold-dark); box-shadow: inset 0 -3px 0 var(--gold-dark); }
+    .choices.ox button { font-size: 40px; padding: 6px; }
+    .choices.ox button:first-child { color: #2c6fbf; } .choices.ox button:last-child { color: var(--red); }
+    #quiz .bar { position: relative; z-index: 1; height: 8px; margin-top: 14px; border-radius: 4px; background: var(--paper-edge); overflow: hidden; }
+    #quiz .bar i { display: block; height: 100%; background: var(--pine); transform-origin: left; }
+    #quiz.hurry .bar i { background: var(--red); }
+
+    /* --- small note: wrong answer + the right one, out of the way --- */
+    #note { position: fixed; z-index: 3; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%); max-width: min(520px, 60vw); padding: 8px 14px; border-radius: 10px;
+      background: rgba(251,243,226,.94); color: var(--ink); font-size: 14px; line-height: 1.4; box-shadow: 0 4px 14px rgba(0,0,0,.35); pointer-events: none; animation: rise .3s ease-out; }
+    #note b { font-weight: 400; color: var(--red); margin-right: 6px; }
+    @keyframes rise { from { transform: translate(-50%, 12px); opacity: 0; } }
+
     #rotate { display: none; z-index: 10; background: var(--night); font-size: 20px; }
     #rotate svg { width: 64px; height: 64px; color: var(--gold); animation: turn 2s ease-in-out infinite; }
     @keyframes turn { 40%, 60% { transform: rotate(-90deg); } }
@@ -121,7 +143,17 @@
   </button>
   <div id="glow" aria-hidden="true"></div>
   <div id="toast" role="status" hidden></div>
-  <button id="pickup" type="button" hidden>줍기</button>
+  <button id="pickup" type="button" hidden>열기</button>
+  <div id="note" role="status" hidden><b></b><span></span></div>
+
+  <div id="quiz" class="sheet" role="dialog" aria-modal="true" aria-label="선물 퀴즈" hidden>
+    <div class="card">
+      <div class="title">선물 퀴즈</div>
+      <p class="q"></p>
+      <div class="choices"></div>
+      <div class="bar" aria-hidden="true"><i></i></div>
+    </div>
+  </div>
 
   <div id="result" class="sheet" role="status" hidden>
     <div class="card"><div class="title">게임 종료</div><div class="rank"></div><div class="mine"></div><div class="sub">큰 화면에서 전체 순위를 확인하세요</div></div>

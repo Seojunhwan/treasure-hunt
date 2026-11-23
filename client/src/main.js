@@ -14,7 +14,7 @@ import { createProps } from './game/physics.js';
 import { connect } from './net.js';
 import { showBanner, goFullscreen } from './install.js';
 import { mmss } from './format.js';
-import { MOVE_SPEED, PLAYER_RADIUS, PICKUP_RADIUS, PICKUP_HEIGHT, HINT_SECONDS, FALL_SPEED } from '../../shared/constants.js';
+import { MOVE_SPEED, PLAYER_RADIUS, PICKUP_RADIUS, PICKUP_HEIGHT, HINT_SECONDS, FALL_SPEED, QUIZ_SECONDS } from '../../shared/constants.js';
 import { resolveCollision, clampToCircle, heightAt, lineOfSight } from '../../shared/collision.js';
 import { SPAWN, INTERIORS } from '../../shared/map.js';
 
@@ -84,7 +84,7 @@ renderer.setAnimationLoop((now) => {
   const look = controls.takeLook();
   view.rotate(look.dx, look.dy);
 
-  const m = me && phase !== 'ended' ? controls.getMove() : { x: 0, y: 0 };
+  const m = me && phase !== 'ended' && !quiz ? controls.getMove() : { x: 0, y: 0 };
   myAvatar?.setSpeed(Math.hypot(m.x, m.y) * MOVE_SPEED);
   myAvatar?.update(dt);
   if (m.x || m.y) {
@@ -101,6 +101,7 @@ renderer.setAnimationLoop((now) => {
     player.position.y = ground >= y ? ground : Math.max(ground, y - FALL_SPEED * dt); // climb instantly, fall smoothly
     player.rotation.y = Math.atan2(-vx, -vz);
   }
+  tickQuiz(now);
   others.update(dt);
   const pushers = others.pushers([]);
   if (me && dt > 0) pushers.push({ x: player.position.x, z: player.position.z, vx: (player.position.x - lastX) / dt, vz: (player.position.z - lastZ) / dt, r: 0.4 });
@@ -110,7 +111,7 @@ renderer.setAnimationLoop((now) => {
   fx.update(dt);
   if (me) myTrail(player.position.x, player.position.y, player.position.z, player.rotation.y, Math.hypot(m.x, m.y) * MOVE_SPEED);
   const pos = player.position;
-  const near = me && phase === 'playing' ? treasures.nearest(pos.x, pos.z) : null;
+  const near = me && phase === 'playing' && !quiz ? treasures.nearest(pos.x, pos.z) : null;
   // show at PICKUP_RADIUS, keep showing a little past it (server allows PICKUP_TOLERANCE) so a moving thumb still lands
   const reach = pickBtn.hidden ? PICKUP_RADIUS : PICKUP_RADIUS + 0.4;
   const canPick = !!near && near.dist <= reach && Math.abs(near.y - pos.y) <= PICKUP_HEIGHT &&
@@ -162,7 +163,8 @@ const net = connect({
     treasures.setFound(state.found);
   },
   onCorrect: ({ x, z }) => { player.position.x = x; player.position.z = z; },
-  onFound: (playerId, treasureId) => { others.pickUp(playerId); treasures.collect(treasureId); },
+  onFound: (playerId, treasureId) => { others.pickUp(playerId); treasures.collect(treasureId); if (quiz?.id === treasureId) closeQuiz('taken'); },
+  onTreasures: (list) => { treasures.setLayout(list); if (!list.length) closeQuiz(); },
 });
 
 const pickBtn = document.getElementById('pickup');
@@ -178,17 +180,83 @@ function toast(text, tone = '') {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toastEl.hidden = true; }, 1600);
 }
+// --- quiz: each gift has its own question; one shot per player, first right answer takes it ---
+const quizEl = document.getElementById('quiz');
+const quizQ = quizEl.querySelector('.q');
+const quizChoices = quizEl.querySelector('.choices');
+const quizBar = quizEl.querySelector('.bar i');
+const noteEl = document.getElementById('note');
+let quiz = null; // { id, deadline, answered }
+let noteTimer = 0;
+
+function note(title, body) {
+  noteEl.querySelector('b').textContent = title;
+  noteEl.querySelector('span').textContent = body;
+  noteEl.hidden = false;
+  clearTimeout(noteTimer);
+  noteTimer = setTimeout(() => { noteEl.hidden = true; }, 4500);
+}
+
+function openQuiz(id, question, choices, remainingMs) {
+  quiz = { id, deadline: performance.now() + remainingMs, answered: false };
+  quizQ.textContent = question;
+  quizChoices.replaceChildren(...choices.map((c, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = c; // admin text: never innerHTML
+    b.addEventListener('pointerdown', (e) => { e.preventDefault(); answer(i, b); });
+    return b;
+  }));
+  quizChoices.className = 'choices n' + choices.length + (choices.length === 2 ? ' ox' : '');
+  quizEl.hidden = false;
+  pickBtn.hidden = true;
+}
+
+function closeQuiz(reason) {
+  if (!quiz) return;
+  if (reason === 'taken') { play('taken'); toast('앗, 다른 사람이 먼저 맞혔어요'); }
+  quiz = null;
+  quizEl.hidden = true;
+}
+
+function answer(choice, btn) {
+  if (!quiz || quiz.answered) return;
+  quiz.answered = true;
+  btn?.classList.add('picked');
+  const id = quiz.id;
+  net.socket.emit('treasure:answer', { id, choice }, (res) => {
+    setScore(res.score);
+    if (res.result === 'ok') { treasures.collect(id); myAvatar?.pickUp(); play('pickup'); toast(`정답! 보물 ${res.score}개째`, 'gold'); }
+    else if (res.result === 'wrong') {
+      treasures.markTried(id);
+      play('taken');
+      note(res.timeout ? '시간 초과' : '아쉽게 틀렸어요', `정답은 「${res.answer}」${res.explain ? ' · ' + res.explain : ''}`);
+    } else if (res.result === 'taken') { play('taken'); toast('앗, 다른 사람이 먼저 맞혔어요'); }
+    quiz = null;
+    quizEl.hidden = true;
+  });
+}
+
+function tickQuiz(now) {
+  if (!quiz || quiz.answered) return;
+  const left = quiz.deadline - now;
+  quizBar.style.transform = `scaleX(${Math.max(0, left / (QUIZ_SECONDS * 1000))})`;
+  quizEl.classList.toggle('hurry', left < 5000);
+  if (left <= 0) answer(null);
+}
+
 // pointerdown, not click: iOS drops clicks while another finger is on the joystick
 pickBtn.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   e.stopPropagation();
-  if (nearId === null) return;
+  if (nearId === null || quiz) return;
   const id = nearId;
-  net.socket.emit('treasure:pickup', { id, x: player.position.x, y: player.position.y, z: player.position.z }, ({ result, score }) => {
-    setScore(score);
-    if (result === 'ok') { treasures.collect(id); myAvatar?.pickUp(); play('pickup'); toast(`보물 획득! ${score}개째`, 'gold'); }
-    else if (result === 'taken') { play('taken'); toast('앗, 한발 늦었어요!'); }
-    else if (result === 'far') toast('조금 더 가까이 가세요');
+  play('click');
+  net.socket.emit('treasure:open', { id, x: player.position.x, y: player.position.y, z: player.position.z }, (res) => {
+    if (res.result === 'quiz') openQuiz(id, res.question, res.choices, res.remainingMs);
+    else if (res.result === 'taken') { play('taken'); toast('앗, 한발 늦었어요'); }
+    else if (res.result === 'tried') { treasures.markTried(id); toast('이미 도전한 선물이에요'); }
+    else if (res.result === 'far') toast('조금 더 가까이 가세요');
   });
 });
 
@@ -214,6 +282,8 @@ addEventListener('pointerdown', () => { if (me) startAmbient(); });
 
 function enter(res) {
   me = { id: res.id, name: res.name };
+  treasures.setLayout(res.treasures ?? []);
+  for (const id of res.tried ?? []) treasures.markTried(id);
   if (!myAvatar) { myAvatar = createAvatar(variantFor(res.id)); player.add(myAvatar.root); }
   setScore(res.score);
   scoreEl.hidden = false;

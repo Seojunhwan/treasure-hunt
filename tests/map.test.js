@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest';
-import { TREASURES, TREASURE_COUNT, SPAWN, MAP_HALF, COLLIDERS } from '../shared/map.js';
+import { TREASURE_SPOTS as TREASURES, SPAWN, MAP_HALF, COLLIDERS } from '../shared/map.js';
 import { resolveCollision, heightAt, lineOfSight } from '../shared/collision.js';
-import { PLAYER_RADIUS, PICKUP_RADIUS, PICKUP_HEIGHT, STEP_HEIGHT } from '../shared/constants.js';
+import { PLAYER_RADIUS, PICKUP_RADIUS, PICKUP_HEIGHT, STEP_HEIGHT, MIN_QUESTIONS } from '../shared/constants.js';
 
 // Walk the map on a 0.5 m grid from the spawn plaza using the game's own movement rules.
 const CELL = 0.5;
@@ -33,10 +33,11 @@ function explore() {
 }
 const reachable = explore();
 
-test('there are exactly 40 treasures with distinct spots', () => {
-  expect(TREASURES).toHaveLength(TREASURE_COUNT);
+test('60 distinct hiding spots, comfortably more than the minimum question count', () => {
+  expect(TREASURES.length).toBe(60);
+  expect(TREASURES.length).toBeGreaterThan(MIN_QUESTIONS);
   const keys = new Set(TREASURES.map((t) => `${Math.round(t.x)},${Math.round(t.z)},${t.y}`));
-  expect(keys.size).toBe(TREASURE_COUNT);
+  expect(keys.size).toBe(TREASURES.length);
 });
 
 test('every treasure can be reached and picked up with nothing in the way', () => {
@@ -44,13 +45,13 @@ test('every treasure can be reached and picked up with nothing in the way', () =
     Math.hypot(c.x - t.x, c.z - t.z) <= PICKUP_RADIUS - 0.3 &&
     Math.abs(c.y - t.y) <= PICKUP_HEIGHT &&
     lineOfSight([c.x, c.y + 1.2, c.z], [t.x, t.y + 0.4, t.z])));
-  expect(bad.map((t) => t.id)).toEqual([]);
+  expect(bad.map((t) => TREASURES.indexOf(t))).toEqual([]);
 });
 
 test('no treasure sits inside a solid', () => {
   const bad = TREASURES.filter((t) => COLLIDERS.some((b) =>
     Math.abs(t.x - b.x) < b.w / 2 && Math.abs(t.z - b.z) < b.d / 2 && t.y + 0.2 > (b.y ?? 0) && t.y + 0.2 < (b.y ?? 0) + b.h));
-  expect(bad.map((t) => t.id)).toEqual([]);
+  expect(bad.map((t) => TREASURES.indexOf(t))).toEqual([]);
 });
 
 test('every tower deck can be climbed', () => {

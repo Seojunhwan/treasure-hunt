@@ -6,6 +6,6 @@ export default defineConfig({
     outDir: '../dist',
     emptyOutDir: true,
     chunkSizeWarningLimit: 1000, // three.js alone is ~570 kB
-    rolldownOptions: { input: { main: 'client/index.html', admin: 'client/admin.html' } },
+    rolldownOptions: { input: { main: 'client/index.html', admin: 'client/admin.html', questions: 'client/questions.html' } },
   },
 });
