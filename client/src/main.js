@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createControls } from './game/controls.js';
+import { createControls, isDesktop } from './game/controls.js';
 import { createFollowCamera } from './game/camera.js';
 import { buildWorld } from './game/world.js';
 import { createAtmosphere } from './game/atmosphere.js';
@@ -48,6 +48,7 @@ const indoors = (x, z) => INTERIORS.some((b) => Math.abs(x - b.x) < b.w / 2 && M
 const view = createFollowCamera();
 const post = createPost(renderer, scene, view.camera);
 const controls = createControls(renderer.domElement);
+if (isDesktop) document.body.classList.add('desktop'); // shows key hints (F, 1-5), hides phone-only copy
 let me = null; // { id, name } once joined
 let phase = 'waiting';
 let camOverride = null; // dev: fixed camera for screenshots
@@ -153,9 +154,11 @@ const net = connect({
       toast('힌트 시작! 가까울수록 소리가 빨라져요', 'gold');
       play('hint');
     }
-    if (me && phase === 'waiting' && state.phase === 'playing') { toast('출발! 보물을 찾아라'); play('start'); }
+    if (me && phase === 'waiting' && state.phase === 'playing') { toast('출발! 보물을 찾아라'); guide(false); play('start'); }
     if (me && phase === 'playing' && state.phase === 'ended') play('end');
     phase = state.phase;
+    guideBtn.hidden = !me || phase !== 'waiting';
+    if (me && phase === 'waiting' && !guideShown) { guideShown = true; guide(true); }
     remaining = state.remainingMs;
     hudTimer.textContent = mmss(state.remainingMs);
     hudTimer.parentElement.parentElement.classList.toggle('urgent', state.phase === 'playing' && state.remainingMs <= 60_000);
@@ -203,7 +206,9 @@ function openQuiz(id, question, choices, remainingMs) {
   quizChoices.replaceChildren(...choices.map((c, i) => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.textContent = c; // admin text: never innerHTML
+    const key = document.createElement('kbd');
+    key.textContent = i + 1;
+    b.append(key, c); // admin text as a text node: never innerHTML
     b.addEventListener('pointerdown', (e) => { e.preventDefault(); answer(i, b); });
     return b;
   }));
@@ -237,6 +242,17 @@ function answer(choice, btn) {
   });
 }
 
+// keyboard: F opens the gift in reach, 1-6 picks an answer, Esc/Enter closes the guide
+addEventListener('keydown', (e) => {
+  if (e.target instanceof HTMLInputElement || e.repeat) return;
+  if (!guideEl.hidden) { if (e.code === 'Escape' || e.code === 'Enter') guide(false); return; }
+  if (quiz) {
+    const n = /^(?:Digit|Numpad)([1-9])$/.exec(e.code)?.[1];
+    const btn = n && quizChoices.children[n - 1];
+    if (btn) answer(n - 1, btn);
+  } else if (e.code === 'KeyF') openGift();
+});
+
 function tickQuiz(now) {
   if (!quiz || quiz.answered) return;
   const left = quiz.deadline - now;
@@ -249,6 +265,9 @@ function tickQuiz(now) {
 pickBtn.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   e.stopPropagation();
+  openGift();
+});
+function openGift() {
   if (nearId === null || quiz) return;
   const id = nearId;
   play('click');
@@ -258,7 +277,18 @@ pickBtn.addEventListener('pointerdown', (e) => {
     else if (res.result === 'tried') { treasures.markTried(id); toast('이미 도전한 선물이에요'); }
     else if (res.result === 'far') toast('조금 더 가까이 가세요');
   });
-});
+}
+
+// how-to-play card: opens once on joining before the start, reopens from the ? button while waiting
+const guideEl = document.getElementById('guide');
+const guideBtn = document.getElementById('guide-btn');
+let guideShown = false;
+function guide(open) {
+  guideEl.hidden = !open;
+  if (!open) document.activeElement?.blur(); // so Enter doesn't re-press the ? button that opened it
+}
+guideEl.querySelector('.close').addEventListener('click', () => guide(false));
+guideBtn.addEventListener('click', () => guide(true));
 
 const resultEl = document.getElementById('result');
 function showResult(ranking) {

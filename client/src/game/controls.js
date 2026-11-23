@@ -1,6 +1,10 @@
-// Left half of the screen: floating joystick. Right half: drag to turn the camera.
-// Keyboard (WASD/arrows) is a desktop fallback for testing.
+// Phones: left half of the screen is a floating joystick, right half drags the camera.
+// Desktop: WASD/arrows move, dragging anywhere turns the camera.
 const RADIUS = 50; // px the knob can travel
+
+// iPadOS Safari claims to be a Mac, so a touch-capable "Mac" is still a tablet
+export const isDesktop = !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) &&
+  !(navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
 
 export function createControls(el) {
   const move = { x: 0, y: 0 };
@@ -16,7 +20,7 @@ export function createControls(el) {
   document.body.appendChild(base);
 
   el.addEventListener('pointerdown', (e) => {
-    if (e.clientX < innerWidth / 2 && stickId === null) {
+    if (!isDesktop && e.clientX < innerWidth / 2 && stickId === null) {
       stickId = e.pointerId;
       origin = { x: e.clientX, y: e.clientY };
       base.style.left = origin.x + 'px';
