@@ -3,71 +3,96 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>보물찾기 · 관리자</title>
+  <title>송년 보물찾기 · 큰 화면</title>
+  <link rel="stylesheet" href="/fonts/jua/jua.css" />
   <style>
-    html, body { margin: 0; height: 100%; background: #0b1220; color: #fff; font-family: system-ui, sans-serif; }
-    main { display: grid; grid-template-columns: 1fr 1fr; gap: 4vw; height: 100%; padding: 4vh 4vw; box-sizing: border-box; }
-    h1 { margin: 0 0 2vh; font-size: 4vw; }
-    #timer { font-size: 13vw; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
-    #phase { font-size: 2.4vw; margin: 1vh 0 3vh; color: #ffd76a; }
-    #count { font-size: 2vw; color: #9fb3c8; }
-    #url { font-size: 2.2vw; margin-top: 2vh; word-break: break-all; }
-    .controls { display: flex; gap: 1vw; margin-top: 4vh; }
-    button { font-size: 1.6vw; padding: 1.2vh 2vw; border-radius: 10px; border: 0; font-weight: 700; cursor: pointer; }
-    #start { background: #3fbf6f; color: #fff; }
-    #start:disabled { background: #3a4a5a; color: #8899aa; cursor: default; }
-    #reset { background: transparent; color: #ff9a9a; border: 2px solid #ff9a9a; }
-    #board h2 { margin: 0 0 2vh; font-size: 2.6vw; }
-    #left { font-size: 2vw; color: #ffd76a; margin-bottom: 2vh; }
-    #rank { list-style: none; margin: 0; padding: 0; }
-    #rank li { display: flex; gap: 1.5vw; align-items: baseline; font-size: 2.4vw; padding: .8vh 0; border-bottom: 1px solid #1e2a3a; }
-    #rank .r { width: 3.5vw; text-align: right; color: #9fb3c8; }
-    #rank .n { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    #rank .s { font-weight: 800; font-variant-numeric: tabular-nums; }
-    #error { color: #ffb4b4; font-size: 2vw; }
-    #final { position: fixed; inset: 0; padding: 4vh 4vw; box-sizing: border-box; background: #0b1220; overflow: auto; }
-    #final h1 { text-align: center; font-size: 4.5vw; margin-bottom: 3vh; }
-    #podium { display: flex; justify-content: center; align-items: flex-end; gap: 2vw; margin-bottom: 4vh; }
-    .place { width: 24vw; text-align: center; border-radius: 16px; padding: 2vh 1vw; background: #16233a; }
-    .place .m { font-size: 6vw; line-height: 1.1; }
-    .place .n { font-size: 3vw; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .place .s { font-size: 2.2vw; color: #ffd76a; }
-    .place.p1 { padding-top: 5vh; background: #2a3550; box-shadow: 0 0 0 3px #ffd76a; }
-    #rest { list-style: none; padding: 0; margin: 0 auto; max-width: 80vw; columns: 3; column-gap: 3vw; }
-    #rest li { display: flex; gap: 1vw; font-size: 1.8vw; padding: .6vh 0; break-inside: avoid; }
-    #rest .r { width: 3vw; text-align: right; color: #9fb3c8; }
-    #rest .n { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    #reset2 { background: transparent; color: #ff9a9a; border: 2px solid #ff9a9a; }
-    #final .controls { justify-content: center; }
+    :root { --ink: #2b1d14; --paper: #fbf3e2; --paper-edge: #e6d6b8; --red: #b8283c; --red-dark: #7e1526; --pine: #1f3d2f; --gold: #f2c14e; --gold-dark: #b8862a; --night: #0b1220; --display: 'Jua', system-ui, sans-serif; }
+    html, body { margin: 0; height: 100%; color: var(--paper); font-family: var(--display); overflow: hidden;
+      background: radial-gradient(ellipse at 50% 120%, #2a3360 0, #141a38 45%, var(--night) 80%); }
+    /* snowfall made of two drifting dot layers */
+    body::before, body::after { content: ''; position: fixed; inset: -100px 0 0; pointer-events: none;
+      background-image: radial-gradient(2px 2px at 20px 30px, #fff9, transparent), radial-gradient(1.5px 1.5px at 120px 80px, #fff8, transparent), radial-gradient(2.5px 2.5px at 200px 160px, #fff6, transparent), radial-gradient(1.5px 1.5px at 60px 200px, #fffa, transparent);
+      background-size: 240px 240px; animation: snow 18s linear infinite; }
+    body::after { background-size: 340px 340px; animation-duration: 28s; opacity: .6; }
+    @keyframes snow { to { transform: translateY(240px); } }
     [hidden] { display: none !important; }
+    main { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 1.1fr; gap: 4vw; height: 100%; padding: 4vh 4vw; box-sizing: border-box; }
+    .logo small { display: block; color: var(--gold); font-size: 1.6vw; letter-spacing: .6vw; }
+    .logo strong { font-weight: 400; font-size: 5.2vw; line-height: 1; text-shadow: 0 .35vw 0 var(--red-dark), 0 1vw 2vw rgba(0,0,0,.5); }
+    .sign { position: relative; display: inline-block; margin-top: 7vh; padding: .6vh 2.4vw 0; background: var(--paper); color: var(--ink); border: .3vw solid var(--ink); border-radius: 1.2vw; box-shadow: 0 .5vw 0 var(--paper-edge), 0 1.2vw 3vw rgba(0,0,0,.45); }
+    .sign::before, .sign::after { content: ''; position: absolute; bottom: 100%; width: .3vw; height: 6vh; background: var(--paper-edge); }
+    .sign::before { left: 2vw; } .sign::after { right: 2vw; }
+    .sign.urgent { background: var(--red); color: var(--paper); border-color: var(--red-dark); box-shadow: 0 .5vw 0 var(--red-dark), 0 1.2vw 3vw rgba(0,0,0,.45); }
+    #timer { font-size: 11vw; line-height: 1; font-variant-numeric: tabular-nums; }
+    .ribbon { display: inline-block; margin-top: 3vh; padding: .8vh 3vw; background: var(--red); font-size: 2vw; clip-path: polygon(0 0, 100% 0, calc(100% - 1.2vw) 50%, 100% 100%, 0 100%, 1.2vw 50%); }
+    .ribbon.playing { background: var(--pine); } .ribbon.ended { background: var(--gold); color: var(--ink); }
+    .join { margin-top: 3vh; font: 1.4vw/1.5 system-ui, sans-serif; color: #c9d0e6; }
+    .join b { display: block; font: 2.4vw var(--display); color: var(--paper); }
+    .controls { display: flex; gap: 1vw; margin-top: 3vh; }
+    button { font: 1.7vw var(--display); padding: 1.2vh 2.4vw; border-radius: .8vw; cursor: pointer; }
+    #start { background: var(--gold); color: var(--ink); border: 0; box-shadow: inset 0 -.35vw 0 var(--gold-dark); }
+    #start:disabled { background: #3a4462; color: #8c95b0; box-shadow: none; cursor: default; }
+    .ghost { background: transparent; color: #ffb3bd; border: .2vw solid #ffb3bd; }
+
+    /* ranking board: a paper card with stitched border */
+    .board { position: relative; align-self: start; background: var(--paper); color: var(--ink); border-radius: 1.4vw; padding: 3vh 2.4vw 2vh; box-shadow: 0 1.6vw 4vw rgba(0,0,0,.5); max-height: 88vh; box-sizing: border-box; overflow: hidden; }
+    .board::after { content: ''; position: absolute; inset: .6vw; border: .2vw dashed var(--paper-edge); border-radius: 1vw; pointer-events: none; }
+    .board h2 { margin: 0; font-weight: 400; font-size: 2.6vw; }
+    #left { font-size: 1.6vw; color: var(--red); margin: .4vh 0 1.6vh; }
+    ol { list-style: none; margin: 0; padding: 0; }
+    li { display: flex; gap: 1.2vw; align-items: center; font-size: 2.2vw; padding: .9vh 0; border-bottom: .15vw solid var(--paper-edge); }
+    li:last-child { border-bottom: 0; }
+    .r { flex: none; width: 3.2vw; height: 3.2vw; display: grid; place-items: center; border-radius: 50%; font-size: 1.6vw; color: var(--ink); background: var(--paper-edge); }
+    .r.m1 { background: radial-gradient(circle at 35% 30%, #ffe9a8, var(--gold) 55%, var(--gold-dark)); }
+    .r.m2 { background: radial-gradient(circle at 35% 30%, #fff, #c9ced8 55%, #8e95a3); }
+    .r.m3 { background: radial-gradient(circle at 35% 30%, #f6c69a, #c9814a 55%, #8a5226); color: var(--paper); }
+    .n { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .s { color: var(--red); font-variant-numeric: tabular-nums; }
+    #empty { font: 1.5vw system-ui, sans-serif; color: #8a7760; margin: 2vh 0; }
+    #error { position: relative; z-index: 1; margin: 20vh auto; max-width: 60vw; text-align: center; font-size: 2vw; color: #ffb4b4; }
+
+    /* final: podium */
+    #final { position: fixed; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; padding: 5vh 4vw; box-sizing: border-box;
+      background: radial-gradient(ellipse at 50% 0, #2a3360 0, var(--night) 70%); }
+    #final h1 { margin: 0 0 4vh; font-weight: 400; font-size: 5vw; text-shadow: 0 .35vw 0 var(--red-dark); }
+    #podium { display: flex; align-items: flex-end; gap: 2vw; }
+    .place { position: relative; width: 22vw; text-align: center; background: var(--paper); color: var(--ink); border-radius: 1.4vw; padding: 5vh 1vw 3vh; box-shadow: 0 1.4vw 3vw rgba(0,0,0,.5); }
+    .place .r { position: absolute; top: -3vw; left: 50%; transform: translateX(-50%); width: 6vw; height: 6vw; font-size: 3vw; box-shadow: 0 .6vw 1.4vw rgba(0,0,0,.4); }
+    .place .n { font-size: 3vw; }
+    .place .s { font-size: 2vw; margin-top: .6vh; }
+    .place.p1 { padding: 8vh 1vw 5vh; box-shadow: 0 0 0 .4vw var(--gold), 0 1.4vw 3vw rgba(0,0,0,.5); }
+    #rest { columns: 3; column-gap: 3vw; margin-top: 5vh; width: 80vw; }
+    #rest li { font-size: 1.7vw; break-inside: avoid; color: var(--paper); border-color: rgba(251,243,226,.15); }
+    #rest .r { width: 2.4vw; height: 2.4vw; font-size: 1.2vw; background: rgba(251,243,226,.15); color: var(--paper); }
+    #rest .s { color: var(--gold); }
+    #final .controls { margin-top: auto; }
   </style>
 </head>
 <body>
   <p id="error" role="alert" hidden></p>
   <main id="app" hidden>
     <section>
-      <h1>❄️ 송년 보물찾기</h1>
-      <div id="timer" aria-live="off">--:--</div>
-      <div id="phase" role="status"></div>
-      <div id="count"></div>
-      <div id="url"></div>
+      <div class="logo"><small>2026 송년회</small><strong>보물찾기</strong></div>
+      <div class="sign" id="sign"><div id="timer" aria-live="off">--:--</div></div><br />
+      <div class="ribbon" id="phase" role="status"></div>
+      <div class="join"><span id="count"></span><b id="url"></b></div>
       <div class="controls">
         <button id="start" type="button">시작</button>
-        <button id="reset" type="button">리셋</button>
+        <button id="reset" type="button" class="ghost">리셋</button>
       </div>
     </section>
-    <section id="board">
-      <h2>🏆 순위</h2>
+    <section class="board">
+      <h2>순위</h2>
       <div id="left"></div>
       <ol id="rank"></ol>
-      <p id="empty" style="color:#9fb3c8">보물이 발견되면 여기에 표시돼요</p>
+      <p id="empty">보물을 찾으면 여기에 이름이 올라가요</p>
     </section>
   </main>
   <section id="final" hidden>
-    <h1>🎉 최종 순위</h1>
+    <h1>최종 순위</h1>
     <div id="podium"></div>
     <ol id="rest"></ol>
-    <div class="controls"><button id="reset2" type="button">리셋</button></div>
+    <div class="controls"><button id="reset2" type="button" class="ghost">리셋</button></div>
   </section>
   <script type="module" src="/src/admin.js"></script>
 </body>

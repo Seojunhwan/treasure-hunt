@@ -11,10 +11,10 @@ export function showBanner() {
   const box = document.getElementById('install');
   if (isStandalone) return void (box.hidden = true);
   if (isIOS) {
-    box.innerHTML = '📲 <b>전체화면으로 즐기려면</b><br>Safari의 <b>공유 버튼</b>(□↑) → <b>홈 화면에 추가</b>를 누른 뒤<br>홈 화면에 생긴 <b>보물찾기 아이콘</b>으로 열어주세요';
+    box.innerHTML = '<b>전체화면으로 즐기려면</b><br>Safari <b>공유 버튼</b> → <b>홈 화면에 추가</b>를 누른 뒤, 홈 화면의 <b>보물찾기</b> 아이콘으로 열어주세요';
     box.hidden = false;
   } else if (deferredPrompt) {
-    box.innerHTML = '📲 <b>앱으로 설치</b>하면 주소창 없이 즐길 수 있어요<br><button type="button">설치하기</button>';
+    box.innerHTML = '<b>앱으로 설치</b>하면 주소창 없이 즐길 수 있어요<br><button type="button">설치하기</button>';
     box.querySelector('button').onclick = async () => {
       deferredPrompt.prompt();
       await deferredPrompt.userChoice;

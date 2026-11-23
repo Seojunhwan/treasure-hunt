@@ -14,6 +14,9 @@ The original License.txt of each pack sits in its folder.
 | ../sfx/hint, taken, click | Interface Sounds (question_002, error_004, click_002) | 1.0 | https://kenney.nl/assets/interface-sounds |
 | ../sfx/pickup, start, end | Music Jingles (PIZZI00, STEEL00, STEEL16) | — | https://kenney.nl/assets/music-jingles |
 
+Font: Jua by the Jua Project Authors (Woowahan Brothers), SIL Open Font License 1.1, self-hosted in
+client/public/fonts/jua/ (OFL.txt there). Downloaded from Google Fonts 2026-11-24.
+
 Sound files were converted from OGG to AAC (.m4a) so iPhones can play them. Background music (wind and a
 music-box "Jingle Bells", a public-domain 1857 tune) is synthesized in code (client/src/game/audio.js).
 

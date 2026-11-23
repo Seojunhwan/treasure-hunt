@@ -3,7 +3,7 @@ import { mmss } from './format.js';
 import { TREASURE_COUNT } from '../../shared/map.js';
 
 const $ = (id) => document.getElementById(id);
-const PHASE = { waiting: '참가자 입장 중 · 시작을 기다리는 중', playing: '게임 진행 중!', ended: '게임 종료!' };
+const PHASE = { waiting: '입장 중 · 곧 시작해요', playing: '보물을 찾는 중', ended: '게임 종료' };
 const token = new URLSearchParams(location.search).get('token');
 const socket = io();
 
@@ -18,12 +18,11 @@ socket.on('connect', () => {
     if (res.error) return fail(res.error + ' (서버 콘솔에 출력된 관리자 주소로 접속하세요)');
     $('error').hidden = true;
     $('app').hidden = false;
-    $('url').textContent = '접속 주소: ' + res.joinUrl;
+    $('url').textContent = res.joinUrl;
   });
 });
-socket.on('disconnect', () => { $('phase').textContent = '서버 연결 끊김, 재연결 중…'; });
+socket.on('disconnect', () => { $('phase').textContent = '서버 연결이 끊겼어요. 다시 연결하는 중…'; $('phase').className = 'ribbon'; });
 
-const MEDAL = ['🥇', '🥈', '🥉'];
 let lastRanking = '';
 // names are user input: build with textContent, never innerHTML
 function el(tag, cls, text) {
@@ -34,7 +33,7 @@ function el(tag, cls, text) {
 }
 const row = (r) => {
   const li = el('li', '');
-  li.append(el('span', 'r', MEDAL[r.rank - 1] ?? r.rank), el('span', 'n', r.name), el('span', 's', `${r.score}개`));
+  li.append(el('span', 'r' + (r.rank <= 3 ? ' m' + r.rank : ''), r.rank), el('span', 'n', r.name), el('span', 's', `${r.score}개`));
   return li;
 };
 function renderRanking(list, ended) {
@@ -44,7 +43,7 @@ function renderRanking(list, ended) {
   // podium order on screen: 2nd, 1st, 3rd
   $('podium').replaceChildren(...[list[1], list[0], list[2]].filter(Boolean).map((r) => {
     const d = el('div', 'place p' + r.rank);
-    d.append(el('div', 'm', MEDAL[r.rank - 1]), el('div', 'n', r.name), el('div', 's', `보물 ${r.score}개`));
+    d.append(el('div', 'r m' + r.rank, r.rank), el('div', 'n', r.name), el('div', 's', `보물 ${r.score}개`));
     return d;
   }));
   $('rest').replaceChildren(...list.slice(3).map(row));
@@ -54,7 +53,9 @@ function renderRanking(list, ended) {
 socket.on('world:state', (s) => {
   $('timer').textContent = mmss(s.remainingMs);
   $('phase').textContent = PHASE[s.phase];
-  $('count').textContent = `접속자 ${s.players.length}명`;
+  $('phase').className = 'ribbon ' + s.phase;
+  $('sign').classList.toggle('urgent', s.phase === 'playing' && s.remainingMs <= 60_000);
+  $('count').textContent = `${s.players.length}명 접속 중 · 휴대폰으로 접속하세요`;
   $('start').disabled = s.phase !== 'waiting';
   $('left').textContent = `남은 보물 ${TREASURE_COUNT - s.found.length} / ${TREASURE_COUNT}`;
   $('empty').hidden = s.ranking.length > 0;

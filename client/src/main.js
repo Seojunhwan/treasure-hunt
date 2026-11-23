@@ -76,7 +76,7 @@ let frames = 0, fpsAt = 0;
 let prev = 0;
 renderer.setAnimationLoop((now) => {
   if (debug && ++frames && now - fpsAt > 1000) {
-    fpsEl.textContent = `${Math.round((frames * 1000) / (now - fpsAt))} fps · ${others.count + (me ? 1 : 0)}명${post.enabled ? ' · ✨' : ''}`;
+    fpsEl.textContent = `${Math.round((frames * 1000) / (now - fpsAt))} fps · ${others.count + (me ? 1 : 0)}명${post.enabled ? ' · FX' : ''}`;
     frames = 0; fpsAt = now;
   }
   const dt = Math.min((now - prev) / 1000, 0.1); // cap avoids a huge jump after the tab was backgrounded
@@ -129,6 +129,12 @@ renderer.setAnimationLoop((now) => {
 });
 
 const status = document.getElementById('status');
+const debugNet = new URLSearchParams(location.search).has('debug');
+function showStatus(connected) {
+  status.classList.toggle('ok', connected);
+  status.querySelector('.name').textContent = connected ? (me ? me.name : '연결됨') : '다시 연결하는 중…';
+  status.querySelector('.net').textContent = debugNet && connected ? net.socket.io.engine.transport.name : '';
+}
 const hudTimer = document.getElementById('timer');
 const hudMsg = document.getElementById('msg');
 const PHASE_MSG = { waiting: '관리자가 시작하면 출발해요!', playing: '', ended: '게임 종료!' };
@@ -136,21 +142,22 @@ hudMsg.textContent = PHASE_MSG.waiting;
 const net = connect({
   onStatus: () => {
     const s = net.socket;
-    status.textContent = s.connected ? `${me ? me.name + ' · ' : ''}연결됨 · ${s.io.engine.transport.name}` : '연결 끊김, 재연결 중…';
+    showStatus(s.connected);
   },
   onState: (state) => {
     if (state.phase !== phase) hudMsg.textContent = PHASE_MSG[state.phase];
     if (state.phase === 'ended' && me) showResult(state.ranking);
     else resultEl.hidden = true;
     if (state.phase === 'playing' && remaining > HINT_SECONDS * 1000 && state.remainingMs <= HINT_SECONDS * 1000) {
-      toast('💡 힌트 시작! 보물에 가까울수록 소리가 빨라져요');
+      toast('힌트 시작! 가까울수록 소리가 빨라져요', 'gold');
       play('hint');
     }
-    if (me && phase === 'waiting' && state.phase === 'playing') { toast('🔔 시작! 보물을 찾아라!'); play('start'); }
+    if (me && phase === 'waiting' && state.phase === 'playing') { toast('출발! 보물을 찾아라'); play('start'); }
     if (me && phase === 'playing' && state.phase === 'ended') play('end');
     phase = state.phase;
     remaining = state.remainingMs;
     hudTimer.textContent = mmss(state.remainingMs);
+    hudTimer.parentElement.parentElement.classList.toggle('urgent', state.phase === 'playing' && state.remainingMs <= 60_000);
     others.sync(state.players, me?.id);
     treasures.setFound(state.found);
   },
@@ -162,9 +169,11 @@ const pickBtn = document.getElementById('pickup');
 const scoreEl = document.getElementById('score');
 const toastEl = document.getElementById('toast');
 let nearId = null, toastTimer = 0;
-const setScore = (n) => { scoreEl.textContent = `💎 ${n}`; };
-function toast(text) {
+const setScore = (n) => { scoreEl.querySelector('b').textContent = n; };
+function toast(text, tone = '') {
   toastEl.textContent = text;
+  toastEl.className = tone;
+  toastEl.style.animation = 'none'; void toastEl.offsetWidth; toastEl.style.animation = ''; // replay the drop-in
   toastEl.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toastEl.hidden = true; }, 1600);
@@ -177,7 +186,7 @@ pickBtn.addEventListener('pointerdown', (e) => {
   const id = nearId;
   net.socket.emit('treasure:pickup', { id, x: player.position.x, y: player.position.y, z: player.position.z }, ({ result, score }) => {
     setScore(score);
-    if (result === 'ok') { treasures.collect(id); myAvatar?.pickUp(); play('pickup'); toast(`🎉 보물 획득! (${score}개)`); }
+    if (result === 'ok') { treasures.collect(id); myAvatar?.pickUp(); play('pickup'); toast(`보물 획득! ${score}개째`, 'gold'); }
     else if (result === 'taken') { play('taken'); toast('앗, 한발 늦었어요!'); }
     else if (result === 'far') toast('조금 더 가까이 가세요');
   });
@@ -186,16 +195,18 @@ pickBtn.addEventListener('pointerdown', (e) => {
 const resultEl = document.getElementById('result');
 function showResult(ranking) {
   const mine = ranking.find((r) => r.id === me.id);
-  const text = mine ? `${mine.rank}위 · 보물 ${mine.score}개` : '이번엔 보물을 못 찾았어요';
+  const text = mine ? `${mine.rank}|보물 ${mine.score}개` : '|이번엔 보물을 못 찾았어요';
   if (resultEl.hidden || resultEl.dataset.text !== text) {
     resultEl.dataset.text = text;
-    resultEl.querySelector('.mine').textContent = text;
+    const [rank, line] = text.split('|');
+    resultEl.querySelector('.rank').textContent = rank ? rank + '위' : '';
+    resultEl.querySelector('.mine').textContent = line;
     resultEl.hidden = false;
   }
 }
 
 const muteBtn = document.getElementById('mute');
-const showMute = () => { muteBtn.textContent = isMuted() ? '🔇' : '🔊'; muteBtn.setAttribute('aria-label', isMuted() ? '소리 켜기' : '소리 끄기'); };
+const showMute = () => { muteBtn.classList.toggle('muted', isMuted()); muteBtn.setAttribute('aria-label', isMuted() ? '소리 켜기' : '소리 끄기'); };
 muteBtn.addEventListener('click', () => { unlockAudio(); setMuted(!isMuted()); showMute(); });
 showMute();
 // returning players skip the join tap, so the first touch anywhere starts the music
@@ -209,7 +220,8 @@ function enter(res) {
   player.position.set(res.x, res.y ?? 0, res.z);
   player.visible = true;
   joinForm.hidden = true;
-  status.textContent = `${me.name} · 연결됨 · ${net.socket.io.engine.transport.name}`;
+  document.body.classList.remove('lobby');
+  showStatus(net.socket.connected);
   net.startSending(() => ({ x: player.position.x, y: player.position.y, z: player.position.z, ry: player.rotation.y }));
 }
 
