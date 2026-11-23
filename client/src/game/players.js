@@ -7,6 +7,7 @@ function makeLabel(text) {
   c.width = 256; c.height = 64;
   const g = c.getContext('2d');
   const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace; // without it the cream text was read as linear: far too bright
   const draw = () => {
     g.clearRect(0, 0, 256, 64);
     g.font = '36px Jua, system-ui, sans-serif';
@@ -17,7 +18,8 @@ function makeLabel(text) {
   };
   draw();
   document.fonts.load('36px Jua', text).then(draw); // redraw once the needed font slices arrive
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false }));
+  // dimmed under the bloom threshold so names read clearly instead of glowing like lamps
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, color: new THREE.Color(0.62, 0.62, 0.62) }));
   sprite.scale.set(2, 0.5, 1);
   sprite.position.y = 2.1;
   return sprite;

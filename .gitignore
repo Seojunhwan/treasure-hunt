@@ -3,3 +3,4 @@ dist/
 .DS_Store
 # live question bank (team trivia stays out of git); seeded from questions.sample.json
 data/questions.json
+data/settings.json

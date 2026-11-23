@@ -6,6 +6,7 @@ import express from 'express';
 import { Server } from 'socket.io';
 import { createGame, join, move, snapshot, start, reset, tick, isAdminToken, openTreasure, answerTreasure, treasureLayout, setQuestions } from './game.js';
 import { loadQuestions, saveQuestions, validateQuestions, MAX_QUESTIONS } from './questions.js';
+import { loadSettings, saveSettings, validateJoinUrl } from './settings.js';
 import { TICK_MS, GAME_SECONDS_DEFAULT, MIN_QUESTIONS } from '../shared/constants.js';
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -14,6 +15,9 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN || randomBytes(9).toString('base64ur
 const lan = Object.values(networkInterfaces()).flat().find((n) => n.family === 'IPv4' && !n.internal);
 // Address players type or scan; behind the company proxy set PUBLIC_URL to the proxied address.
 const PUBLIC_URL = process.env.PUBLIC_URL || `http://${lan?.address ?? 'localhost'}:${PORT}`;
+// the big screen can override it (saved in data/settings.json); empty means PUBLIC_URL again
+const settings = loadSettings();
+const joinUrl = () => settings.joinUrl || PUBLIC_URL;
 
 const app = express();
 const query = (req) => (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '');
@@ -94,7 +98,17 @@ io.on('connection', (socket) => {
     if (!isAdminToken(token, ADMIN_TOKEN)) return ack({ error: '관리자 토큰이 올바르지 않습니다' });
     socket.data.admin = true;
     socket.join('admins');
-    ack({ joinUrl: PUBLIC_URL, min: MIN_QUESTIONS });
+    ack({ joinUrl: joinUrl(), defaultUrl: PUBLIC_URL, min: MIN_QUESTIONS });
+  });
+
+  socket.on('admin:url', (url, ack) => {
+    if (!socket.data.admin || typeof ack !== 'function') return;
+    const v = validateJoinUrl(url);
+    if (v.error) return ack({ error: v.error });
+    settings.joinUrl = v.url;
+    saveSettings(settings);
+    ack({ joinUrl: joinUrl() });
+    io.to('admins').emit('admin:url', joinUrl()); // every open big screen redraws its QR
   });
 
   socket.on('admin:start', (ack) => {
@@ -124,7 +138,7 @@ setInterval(() => {
 }, TICK_MS);
 
 httpServer.listen(PORT, () => {
-  console.log(`players: ${PUBLIC_URL}`);
+  console.log(`players: ${joinUrl()}`);
   console.log(`admin:   http://localhost:${PORT}/admin?token=${ADMIN_TOKEN}`);
   console.log(`game length: ${GAME_SECONDS}s`);
 });

@@ -18,12 +18,36 @@ socket.on('connect', () => {
     if (res.error) return fail(res.error + ' (서버 콘솔에 출력된 관리자 주소로 접속하세요)');
     $('error').hidden = true;
     $('app').hidden = false;
-    $('url').textContent = res.joinUrl;
+    showJoinUrl(res.joinUrl);
     $('qlink').href = '/admin/questions?token=' + encodeURIComponent(token);
     minQuestions = res.min;
-    QRCode.toString(res.joinUrl, { type: 'svg', margin: 0, color: { dark: '#2b1d14', light: '#fbf3e2' } }).then((svg) => { $('qr').innerHTML = svg; }); // svg is generated locally, not user input
   });
 });
+socket.on('admin:url', showJoinUrl);
+
+let joinUrl = '';
+function showJoinUrl(url) {
+  joinUrl = url;
+  $('url').textContent = url;
+  QRCode.toString(url, { type: 'svg', margin: 0, color: { dark: '#2b1d14', light: '#fbf3e2' } }).then((svg) => { $('qr').innerHTML = svg; }); // svg is generated locally, not user input
+}
+
+// the laptop sees localhost, players come through the company proxy: let the host fix the address
+function editUrl(open) {
+  $('url-form').hidden = !open;
+  $('url-edit').hidden = open;
+  $('url-error').textContent = '';
+  if (open) { $('url-input').value = joinUrl; $('url-input').focus(); }
+}
+$('url-edit').onclick = () => editUrl(true);
+$('url-cancel').onclick = () => editUrl(false);
+$('url-form').onsubmit = (e) => {
+  e.preventDefault();
+  socket.emit('admin:url', $('url-input').value, (res) => {
+    if (res.error) $('url-error').textContent = res.error;
+    else editUrl(false);
+  });
+};
 socket.on('disconnect', () => { $('phase').textContent = '서버 연결이 끊겼어요. 다시 연결하는 중…'; $('phase').className = 'ribbon'; });
 
 let lastRanking = '';

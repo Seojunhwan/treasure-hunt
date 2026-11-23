@@ -21,14 +21,14 @@ const Grade = {
     }`,
 };
 
-const KEY = 'treasure-hunt-post';
 const MIN_FPS = 40; // iPhone with bloom + 45 bots held the 50s (2026-11-24)
 
-// Bloom makes windows and lamps glow. It's the most expensive thing on screen, so it turns
-// itself off for good on phones that can't hold the frame rate (?post=0/1 forces it).
+// Bloom makes windows and lamps glow. It's on at every load; it's the most expensive thing on screen,
+// so it turns itself off for the rest of the visit if the device can't hold the frame rate (?post=0/1 forces it).
 export function createPost(renderer, scene, camera) {
   const forced = new URLSearchParams(location.search).get('post');
-  let enabled = forced !== null ? forced === '1' : localStorage.getItem(KEY) !== 'off';
+  localStorage.removeItem('treasure-hunt-post'); // older builds remembered "off" forever
+  let enabled = forced !== null ? forced === '1' : true;
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
   const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.45, 0.6);
@@ -57,10 +57,7 @@ export function createPost(renderer, scene, camera) {
         // skip the first window (assets still loading); two slow windows in a row = this phone can't
         windows++;
         bad = windows > 1 && (frames * 1000) / t < MIN_FPS && document.visibilityState === 'visible' ? bad + 1 : 0;
-        if (bad >= 2) {
-          enabled = false;
-          localStorage.setItem(KEY, 'off');
-        }
+        if (bad >= 2) enabled = false;
         frames = 0; since = now;
       }
     },

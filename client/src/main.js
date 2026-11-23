@@ -75,7 +75,13 @@ const fpsEl = document.getElementById('fps');
 fpsEl.addEventListener('pointerdown', () => post.toggle());
 let frames = 0, fpsAt = 0;
 let prev = 0;
+// rAF follows the screen (60/120/144/240Hz); render at most ~120 fps. Due time advances on a grid so a 144Hz
+// screen still gets ~120 instead of halving to 72.
+const FRAME_MS = 1000 / 120;
+let due = 0;
 renderer.setAnimationLoop((now) => {
+  if (now < due - 1) return;
+  due = Math.max(due + FRAME_MS, now);
   if (debug && ++frames && now - fpsAt > 1000) {
     fpsEl.textContent = `${Math.round((frames * 1000) / (now - fpsAt))} fps · ${others.count + (me ? 1 : 0)}명${post.enabled ? ' · FX' : ''}`;
     frames = 0; fpsAt = now;
