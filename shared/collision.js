@@ -1,5 +1,5 @@
 import { MAP_HALF, COLLIDERS, PLATFORMS, RAMPS } from './map.js';
-import { PLAYER_HEIGHT, STEP_HEIGHT } from './constants.js';
+import { PLAYER_HEIGHT, STEP_HEIGHT, GRAVITY, MAX_FALL, HEAD_ROOM } from './constants.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -45,6 +45,32 @@ export function heightAt(x, z, y = 0, platforms = PLATFORMS, ramps = RAMPS) {
     if (v > h && v <= reach) h = v;
   }
   return h;
+}
+
+// Lowest roof, deck or slab over (x, z) that starts above a walker standing at y (Infinity if open sky).
+export function ceilingAt(x, z, y, boxes = COLLIDERS, platforms = PLATFORMS) {
+  let c = Infinity;
+  for (const b of boxes) {
+    const by = b.y ?? 0;
+    if (by >= y + STEP_HEIGHT && by < c && Math.abs(x - b.x) <= b.w / 2 && Math.abs(z - b.z) <= b.d / 2) c = by;
+  }
+  for (const p of platforms) if (p.y > y + STEP_HEIGHT && p.y - 0.15 < c && inside(p, x, z)) c = p.y - 0.15;
+  return c;
+}
+
+const SNAP_DOWN = 0.35; // a grounded walker follows stairs and ramps down instead of hopping off them
+
+// One frame of vertical motion: gravity, head bumps, landing. vy > 0 is up.
+export function verticalStep(x, z, y, vy, grounded, dt) {
+  vy = Math.max(vy - GRAVITY * dt, -MAX_FALL);
+  let ny = y + vy * dt;
+  if (vy > 0) {
+    const c = ceilingAt(x, z, y);
+    if (ny + HEAD_ROOM > c) { ny = Math.max(y, c - HEAD_ROOM); vy = 0; }
+  }
+  const ground = heightAt(x, z, Math.max(y, ny)); // rising past a ledge within step reach lands on it
+  if (ny <= ground || (grounded && vy <= 0 && y - ground <= SNAP_DOWN)) return { y: ground, vy: 0, grounded: true };
+  return { y: ny, vy, grounded: false };
 }
 
 export function clampToCircle(x, z, c) {

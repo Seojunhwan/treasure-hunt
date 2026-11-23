@@ -49,7 +49,7 @@ export function createRemotePlayers(scene, fx) {
           o = { avatar, label, buf: [], speed: 0, trail: createTrail(fx) };
           others.set(p.id, o);
         }
-        o.buf.push({ t: now, x: p.x, y: p.y ?? 0, z: p.z, ry: p.ry });
+        o.buf.push({ t: now, x: p.x, y: p.y ?? 0, z: p.z, ry: p.ry, air: !!p.air });
         if (o.buf.length > 8) o.buf.shift();
       }
       for (const [id, o] of others) {
@@ -75,8 +75,9 @@ export function createRemotePlayers(scene, fx) {
         avatar.root.rotation.y = lerpAngle(a.ry, b.ry, t);
         const seg = b.t > a.t && renderT <= b.t ? Math.hypot(b.x - a.x, b.z - a.z) / ((b.t - a.t) / 1000) : 0;
         o.speed += (seg - o.speed) * (1 - Math.exp(-dt * 8)); // smoothed so the clip doesn't flicker
+        avatar.setAir(b.air ? (b.y > a.y ? 'jump' : 'fall') : null);
         avatar.setSpeed(o.speed);
-        trail(pos.x, pos.y, pos.z, avatar.root.rotation.y, o.speed);
+        trail(pos.x, pos.y, pos.z, avatar.root.rotation.y, b.air ? 0 : o.speed);
         avatar.update(dt);
       }
     },

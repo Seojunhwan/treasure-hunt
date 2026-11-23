@@ -1,4 +1,4 @@
-// Kenney Mini Characters (CC0) with idle / walk / sprint / pick-up clips.
+// Kenney Mini Characters (CC0) with idle / walk / sprint / jump / fall / pick-up clips.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
@@ -22,7 +22,7 @@ export const variantFor = (id) => VARIANTS[parseInt(id.slice(0, 6), 16) % VARIAN
 // Returns immediately; the model pops in when loaded. root faces -z at rotation 0 (game convention).
 export function createAvatar(variant) {
   const root = new THREE.Group();
-  let mixer = null, actions = {}, current = null, onceAction = null;
+  let mixer = null, actions = {}, current = null, onceAction = null, air = null;
   const play = (name) => {
     if (onceAction || current === name || !actions[name]) return;
     actions[name].reset().fadeIn(0.15).play();
@@ -39,18 +39,29 @@ export function createAvatar(variant) {
     for (const clip of gltf.animations) actions[clip.name] = mixer.clipAction(clip);
     const p = actions['pick-up'];
     if (p) { p.setLoop(THREE.LoopOnce); p.clampWhenFinished = false; }
-    mixer.addEventListener('finished', () => { onceAction = null; const c = current; current = null; play(c ?? 'idle'); });
+    if (actions.jump) { actions.jump.setLoop(THREE.LoopOnce); actions.jump.clampWhenFinished = true; } // hold the tuck at the top
+    mixer.addEventListener('finished', (e) => {
+      if (e.action !== onceAction) return; // the jump clip also ends; only the pick-up hands control back
+      onceAction = null; const c = current; current = null; play(c ?? 'idle');
+    });
     play('idle');
   });
   return {
     root,
     // speed in m/s picks the clip; separate up/down thresholds stop it flickering at the boundary
     setSpeed(v) {
+      if (air) return;
       const c = current ?? 'idle';
       const next = c === 'idle' ? (v > 0.5 ? (v > 3.8 ? 'sprint' : 'walk') : 'idle')
         : c === 'walk' ? (v < 0.25 ? 'idle' : v > 3.8 ? 'sprint' : 'walk')
         : (v < 0.25 ? 'idle' : v < 3.0 ? 'walk' : 'sprint');
       play(next);
+    },
+    // null on the ground, 'jump' going up, 'fall' coming down
+    setAir(a) {
+      if (a === air) return;
+      air = a;
+      if (a) play(a);
     },
     pickUp() {
       const p = actions['pick-up'];

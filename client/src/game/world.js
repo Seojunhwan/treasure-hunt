@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { load, townHouse } from './kit.js';
-import { S, MAP_HALF, SPAWN, HOUSES, TOWERS, PROPS, ROOMS, LAMPS, FURNITURE_SCALE, houseSize, rot } from '../../../shared/map.js';
+import { S, MAP_HALF, SPAWN, HOUSES, TOWERS, PROPS, ROOMS, LAMPS, FURNITURE_SCALE, SCAFFOLDS, houseSize, rot } from '../../../shared/map.js';
 
 const Q = Math.PI / 2;
 
@@ -48,7 +48,8 @@ export async function buildWorld(scene) {
   }
 
   for (const t of TOWERS) jobs.push(tower(t).then((g) => put(g, t.x, 0, t.z, t.rot)));
-  for (const p of PROPS) jobs.push(load(p.pack, p.name).then((o) => put(o, p.x, 0, p.z, p.rot ?? 0, p.s ?? S)));
+  for (const p of PROPS) jobs.push(load(p.pack, p.name).then((o) => put(o, p.x, p.y ?? 0, p.z, p.rot ?? 0, p.s ?? S)));
+  for (const s of SCAFFOLDS) jobs.push(load('survival-kit', 'structure-floor').then((o) => put(o, s.x, 0, s.z, 0, 5)));
   for (const l of LAMPS) jobs.push(load('fantasy-town-kit', 'lantern').then((o) => put(o, l.x, 0, l.z, 0, 2.6)));
 
   await Promise.all(jobs);

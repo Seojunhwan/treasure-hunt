@@ -24,7 +24,7 @@
     canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
     #status, #fps, #hud, .stick, #score, #toast, #pickup, #mute { z-index: 2; }
     [hidden] { display: none !important; }
-    body.lobby #hud, body.lobby #score { display: none; } /* the join card owns the screen until we're in */
+    body.lobby #hud, body.lobby #score, body.lobby #jump { display: none; } /* the join card owns the screen until we're in */
     svg { display: block; }
 
     /* --- top-left: who am I + gift tag score --- */
@@ -68,6 +68,14 @@
       box-shadow: inset 0 -6px 12px rgba(0,0,0,.3), 0 6px 16px rgba(0,0,0,.45); animation: glow 1.1s ease-in-out infinite; }
     #pickup::before { content: ''; position: absolute; top: -12px; left: 50%; width: 26px; height: 16px; margin-left: -13px; border-radius: 4px; background: linear-gradient(var(--gold), var(--gold-dark)); } /* ornament cap */
     #pickup:active { transform: scale(.93); }
+    /* phones: jump sits in the right thumb's corner, the open button moves to its left */
+    #jump { position: fixed; z-index: 2; right: max(22px, calc(env(safe-area-inset-right) + 10px)); bottom: max(18px, env(safe-area-inset-bottom)); width: 86px; height: 86px; border: 0; border-radius: 50%; padding: 0;
+      touch-action: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font: 16px var(--display);
+      color: var(--paper); background: radial-gradient(circle at 34% 30%, #4f8a6a, var(--pine) 60%, #173a2a); box-shadow: 0 6px 16px rgba(0,0,0,.4), inset 0 -4px 0 rgba(0,0,0,.25); opacity: .9; }
+    #jump svg { width: 30px; height: 30px; }
+    #jump:active { transform: scale(.92); }
+    body.desktop #jump { display: none; }
+    body:not(.desktop) #pickup { right: max(126px, calc(env(safe-area-inset-right) + 114px)); bottom: max(40px, calc(env(safe-area-inset-bottom) + 22px)); }
     kbd { display: inline-block; min-width: 1.3em; margin: 0 1px; padding: 0 4px; font: 13px/1.4 var(--display); text-align: center; color: var(--ink); background: #fff; border: 1px solid var(--paper-edge); border-radius: 5px; box-shadow: 0 2px 0 var(--paper-edge); vertical-align: middle; }
     body:not(.desktop) kbd, body:not(.desktop) .d, body.desktop .m { display: none; } /* key hints only where there's a keyboard */
     #pickup kbd { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); }
@@ -159,6 +167,7 @@
   </button>
   <div id="glow" aria-hidden="true"></div>
   <div id="toast" role="status" hidden></div>
+  <button id="jump" type="button" aria-label="점프"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l7 8h-4.5v8h-5v-8H5z" fill="currentColor"/></svg>점프</button>
   <button id="pickup" type="button" hidden>열기<kbd>F</kbd></button>
   <button id="guide-btn" type="button" hidden>게임 방법</button>
   <div id="note" role="status" hidden><b></b><span></span></div>
@@ -178,12 +187,12 @@
       <div class="tiles">
         <section><h3>목표</h3><p>마을 곳곳에 숨은 선물 상자를 찾아 퀴즈를 맞히세요. 선물을 가장 많이 모은 사람이 우승이에요.</p></section>
         <section><h3>이동</h3>
-          <p class="m">화면 왼쪽을 누른 채 끌면 조이스틱이에요. 끝까지 밀면 달려요. 화면 오른쪽을 끌면 시점이 돌아가요.</p>
-          <p class="d"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 또는 방향키로 이동하고, 마우스로 화면을 끌면 시점이 돌아가요.</p></section>
+          <p class="m">화면 왼쪽을 누른 채 끌면 조이스틱이에요. 끝까지 밀면 달려요. 화면 오른쪽을 끌면 시점이 돌아가요. 오른쪽 아래 <b>점프</b> 버튼으로 뛰어올라요.</p>
+          <p class="d"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 또는 방향키로 이동, <kbd>Space</kbd>로 점프, 마우스로 화면을 끌면 시점이 돌아가요.</p></section>
         <section><h3>선물 열기</h3>
           <p class="m">선물 가까이 가면 오른쪽 아래에 <b>열기</b> 버튼이 나와요.</p>
           <p class="d">선물 가까이 가서 <kbd>F</kbd>를 누르세요.</p>
-          <p>집 안, 망루 위아래, 집 뒤편까지 살펴보세요. 벽 너머로는 열 수 없어요.</p></section>
+          <p>집 안, 망루 위아래, 집 뒤편, 점프해야 닿는 상자·돌 유적·비계 위까지 살펴보세요. 벽 너머로는 열 수 없어요.</p></section>
         <section><h3>퀴즈</h3><p>선물마다 문제가 하나씩 있어요. 20초 안에 <span class="m">보기를 누르세요.</span><span class="d">보기를 클릭하거나 숫자 <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>…를 누르세요.</span> 푸는 동안 캐릭터는 멈춰요.</p></section>
         <section><h3>정답과 오답</h3><p>가장 먼저 맞힌 사람이 선물을 가져가요. 틀리거나 시간이 지나면 그 선물은 나만 다시 열 수 없어요. 다른 사람은 도전할 수 있어요.</p></section>
         <section><h3>마지막 3분 힌트</h3><p>아직 남은 선물에 가까워질수록 삑삑 소리가 빨라지고 화면 가장자리가 빛나요.</p></section>

@@ -14,8 +14,8 @@ import { createProps } from './game/physics.js';
 import { connect } from './net.js';
 import { showBanner, goFullscreen } from './install.js';
 import { mmss } from './format.js';
-import { MOVE_SPEED, PLAYER_RADIUS, PICKUP_RADIUS, PICKUP_HEIGHT, HINT_SECONDS, FALL_SPEED, QUIZ_SECONDS } from '../../shared/constants.js';
-import { resolveCollision, clampToCircle, heightAt, lineOfSight } from '../../shared/collision.js';
+import { MOVE_SPEED, PLAYER_RADIUS, PICKUP_RADIUS, PICKUP_HEIGHT, HINT_SECONDS, JUMP_SPEED, QUIZ_SECONDS } from '../../shared/constants.js';
+import { resolveCollision, clampToCircle, verticalStep, lineOfSight } from '../../shared/collision.js';
 import { SPAWN, INTERIORS } from '../../shared/map.js';
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -99,14 +99,18 @@ renderer.setAnimationLoop((now) => {
     const s = Math.sin(view.yaw), c = Math.cos(view.yaw);
     const vx = (-s * m.y + c * m.x) * MOVE_SPEED;
     const vz = (-c * m.y - s * m.x) * MOVE_SPEED;
-    const y = player.position.y;
-    let p = resolveCollision(player.position.x + vx * dt, player.position.z + vz * dt, PLAYER_RADIUS, y);
+    let p = resolveCollision(player.position.x + vx * dt, player.position.z + vz * dt, PLAYER_RADIUS, player.position.y);
     if (phase === 'waiting') p = clampToCircle(p.x, p.z, SPAWN);
     player.position.x = p.x;
     player.position.z = p.z;
-    const ground = heightAt(p.x, p.z, y);
-    player.position.y = ground >= y ? ground : Math.max(ground, y - FALL_SPEED * dt); // climb instantly, fall smoothly
     player.rotation.y = Math.atan2(-vx, -vz);
+  }
+  if (me) {
+    if (jumpAsked && grounded && !quiz && phase !== 'ended') { vy = JUMP_SPEED; grounded = false; }
+    jumpAsked = false;
+    const v = verticalStep(player.position.x, player.position.z, player.position.y, vy, grounded, dt);
+    player.position.y = v.y; vy = v.vy; grounded = v.grounded;
+    myAvatar?.setAir(grounded ? null : vy > 0 ? 'jump' : 'fall');
   }
   tickQuiz(now);
   others.update(dt);
@@ -116,7 +120,7 @@ renderer.setAnimationLoop((now) => {
   props.update(dt, pushers, player.position);
   treasures.update(now, dt);
   fx.update(dt);
-  if (me) myTrail(player.position.x, player.position.y, player.position.z, player.rotation.y, Math.hypot(m.x, m.y) * MOVE_SPEED);
+  if (me) myTrail(player.position.x, player.position.y, player.position.z, player.rotation.y, grounded ? Math.hypot(m.x, m.y) * MOVE_SPEED : 0);
   const pos = player.position;
   const near = me && phase === 'playing' && !quiz ? treasures.nearest(pos.x, pos.z) : null;
   // show at PICKUP_RADIUS, keep showing a little past it (server allows PICKUP_TOLERANCE) so a moving thumb still lands
@@ -180,6 +184,7 @@ const pickBtn = document.getElementById('pickup');
 const scoreEl = document.getElementById('score');
 const toastEl = document.getElementById('toast');
 let nearId = null, toastTimer = 0;
+let vy = 0, grounded = true, jumpAsked = false; // vertical motion of my player
 const setScore = (n) => { scoreEl.querySelector('b').textContent = n; };
 function toast(text, tone = '') {
   toastEl.textContent = text;
@@ -257,7 +262,11 @@ addEventListener('keydown', (e) => {
     const btn = n && quizChoices.children[n - 1];
     if (btn) answer(n - 1, btn);
   } else if (e.code === 'KeyF') openGift();
+  else if (e.code === 'Space') { e.preventDefault(); jumpAsked = true; }
 });
+// phones: the jump button (pointerdown so it works while the other thumb steers)
+const jumpBtn = document.getElementById('jump');
+jumpBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); jumpAsked = true; });
 
 function tickQuiz(now) {
   if (!quiz || quiz.answered) return;
@@ -328,7 +337,7 @@ function enter(res) {
   joinForm.hidden = true;
   document.body.classList.remove('lobby');
   showStatus(net.socket.connected);
-  net.startSending(() => ({ x: player.position.x, y: player.position.y, z: player.position.z, ry: player.rotation.y }));
+  net.startSending(() => ({ x: player.position.x, y: player.position.y, z: player.position.z, ry: player.rotation.y, air: !grounded }));
 }
 
 const joinForm = document.getElementById('join');

@@ -10,6 +10,7 @@ The original License.txt of each pack sits in its folder.
 | holiday-kit/ | Holiday Kit | 2.0 | https://kenney.nl/assets/holiday-kit |
 | mini-characters/ | Mini Characters | 2.0 | https://kenney.nl/assets/mini-characters |
 | furniture-kit/ | Furniture Kit | 2.0 | https://kenney.nl/assets/furniture-kit |
+| survival-kit/ | Survival Kit (box, box-large, barrel, resource-planks, structure-floor; downloaded 2026-11-24) | 2.0 | https://kenney.nl/assets/survival-kit |
 | ../sfx/step*.m4a, bump.m4a | Impact Sounds (footstep_snow_000-003, impactSoft_medium_001) | 1.0 | https://kenney.nl/assets/impact-sounds |
 | ../sfx/hint, taken, click | Interface Sounds (question_002, error_004, click_002) | 1.0 | https://kenney.nl/assets/interface-sounds |
 | ../sfx/pickup, start, end | Music Jingles (PIZZI00, STEEL00, STEEL16) | — | https://kenney.nl/assets/music-jingles |

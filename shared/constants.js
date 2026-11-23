@@ -10,7 +10,10 @@ export const HINT_SECONDS = 180; // hint turns on when this much time is left
 export const HINT_RANGE = 12;
 export const PLAYER_HEIGHT = 1.8;
 export const STEP_HEIGHT = 0.6; // highest ledge a walker steps onto without stairs
-export const FALL_SPEED = 9; // m/s when stepping off a deck
+export const GRAVITY = 22; // m/s²
+export const JUMP_SPEED = 7.5; // m/s up; peak = JUMP_SPEED² / 2g ≈ 1.28 m, so a 1.9 m ledge is the highest you can land on
+export const MAX_FALL = 25; // m/s terminal speed
+export const HEAD_ROOM = 1.6; // m a jump needs under a roof or deck (a bit under PLAYER_HEIGHT so beds still fit)
 export const PICKUP_HEIGHT = 1.2; // max height difference between player feet and treasure
 export const NAME_MAX = 12;
 export const GAME_SECONDS_DEFAULT = 900; // 15 min; server env GAME_SECONDS overrides for testing

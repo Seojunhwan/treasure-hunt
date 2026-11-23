@@ -1,3 +1,5 @@
+import { verticalStep, ceilingAt } from '../shared/collision.js';
+import { JUMP_SPEED, HEAD_ROOM } from '../shared/constants.js';
 import { test, expect } from 'vitest';
 import { resolveCollision, clampToCircle, rayCast, heightAt, lineOfSight } from '../shared/collision.js';
 import { COLLIDERS, SPAWN, MAP_HALF } from '../shared/map.js';
@@ -81,4 +83,31 @@ test('lineOfSight: blocked by a wall, clear around it', () => {
   const wall = [{ x: 0, z: 0, w: 4, d: 0.3, h: 3 }];
   expect(lineOfSight([0, 1, -2], [0, 1, 2], wall)).toBe(false);
   expect(lineOfSight([5, 1, -2], [5, 1, 2], wall)).toBe(true);
+});
+
+const fall = (x, z, y, vy, steps = 120, dt = 1 / 60) => {
+  let s = { y, vy, grounded: false }, top = y;
+  for (let i = 0; i < steps; i++) { s = verticalStep(x, z, s.y, s.vy, s.grounded, dt); top = Math.max(top, s.y); }
+  return { ...s, top };
+};
+
+test('jump: rises about 1.3 m and lands back on open ground', () => {
+  const r = fall(0, 0, 0, JUMP_SPEED);
+  expect(r.top).toBeGreaterThan(1.2);
+  expect(r.top).toBeLessThan(1.4);
+  expect(r.y).toBe(0);
+  expect(r.grounded).toBe(true);
+});
+
+test('jump: a slab overhead is a ceiling', () => {
+  const boxes = [{ x: 0, z: 0, w: 4, d: 4, h: 0.2, y: 2.4 }];
+  expect(ceilingAt(0, 0, 0, boxes, [])).toBe(2.4);
+  expect(ceilingAt(9, 9, 0, boxes, [])).toBe(Infinity);
+});
+
+test('jump: stepping off a ledge falls with gravity, not instantly', () => {
+  const s = verticalStep(0, 0, 3, 0, false, 1 / 60);
+  expect(s.y).toBeLessThan(3);
+  expect(s.y).toBeGreaterThan(2.9);
+  expect(HEAD_ROOM).toBeLessThan(1.8);
 });

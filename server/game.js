@@ -110,7 +110,7 @@ export function move(state, player, msg, now) {
   const allowed = MOVE_SPEED * SPEED_TOLERANCE * dt + 0.5; // +0.5 m absorbs network jitter
   if (Math.hypot(x - player.x, z - player.z) > allowed) return false;
   const p = state.phase === 'waiting' ? clampToCircle(x, z, SPAWN) : { x, z };
-  Object.assign(player, p, { y, ry, lastMoveAt: now });
+  Object.assign(player, p, { y, ry, air: msg.air === true, lastMoveAt: now });
   return true;
 }
 
@@ -165,7 +165,7 @@ export function ranking(state) {
 
 export function snapshot(state, now) {
   const players = [];
-  for (const p of state.players.values()) if (p.online) players.push({ id: p.id, name: p.name, x: p.x, y: p.y ?? 0, z: p.z, ry: p.ry });
+  for (const p of state.players.values()) if (p.online) players.push({ id: p.id, name: p.name, x: p.x, y: p.y ?? 0, z: p.z, ry: p.ry, air: !!p.air });
   return {
     phase: state.phase,
     remainingMs: remainingMs(state, now),

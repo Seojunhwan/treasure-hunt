@@ -43,7 +43,7 @@ export function connect({ onStatus, onState, onCorrect, onFound, onTreasures }) 
     startSending(getPose) {
       setInterval(() => {
         const pose = getPose();
-        const key = `${pose.x.toFixed(2)},${pose.y.toFixed(2)},${pose.z.toFixed(2)},${pose.ry.toFixed(2)}`;
+        const key = `${pose.x.toFixed(2)},${pose.y.toFixed(2)},${pose.z.toFixed(2)},${pose.ry.toFixed(2)},${pose.air}`;
         if (key === last || !socket.connected) return;
         last = key;
         socket.volatile.emit('player:move', pose);

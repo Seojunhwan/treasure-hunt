@@ -51,25 +51,58 @@ export const TOWERS = [
 ];
 
 // Free-standing props. box = collider [w, d, h] in metres before rotation (omit for walk-through props).
+// y lifts a prop onto another (stacked crates). The top of a box is something you can jump onto,
+// unless stand: false (stall canopies, snowman heads: the model doesn't match a flat top).
 export const PROPS = [
   { pack: 'holiday-kit', name: 'tree-decorated-snow', x: 0, z: -14, s: 5, box: [1.6, 1.6, 4] },
-  { pack: 'fantasy-town-kit', name: 'fountain-round', x: 28, z: -28, s: 2.4, box: [4.6, 4.6, 0.9] },
-  { pack: 'fantasy-town-kit', name: 'stall-red', x: 22, z: -36, rot: 2, s: 2.4, box: [2.4, 1.2, 1.1] },
-  { pack: 'fantasy-town-kit', name: 'stall-green', x: 34, z: -36, rot: 2, s: 2.4, box: [2.4, 1.2, 1.1] },
-  { pack: 'fantasy-town-kit', name: 'stall-red', x: 38, z: -22, rot: 3, s: 2.4, box: [1.2, 2.4, 1.1] },
+  { pack: 'fantasy-town-kit', name: 'fountain-round', x: 28, z: -28, s: 2.4, box: [4.6, 4.6, 0.7] },
+  { pack: 'fantasy-town-kit', name: 'stall-red', x: 22, z: -36, rot: 2, s: 2.4, box: [2.4, 1.2, 1.1], stand: false },
+  { pack: 'fantasy-town-kit', name: 'stall-green', x: 34, z: -36, rot: 2, s: 2.4, box: [2.4, 1.2, 1.1], stand: false },
+  { pack: 'fantasy-town-kit', name: 'stall-red', x: 38, z: -22, rot: 3, s: 2.4, box: [1.2, 2.4, 1.1], stand: false },
   { pack: 'fantasy-town-kit', name: 'cart', x: 19, z: -24, rot: 1, s: 2.4, box: [1.6, 2.6, 1.2] },
   { pack: 'fantasy-town-kit', name: 'cart', x: -24, z: 24, rot: 0, s: 2.4, box: [1.6, 2.6, 1.2] },
-  { pack: 'holiday-kit', name: 'snowman-hat', x: 24, z: 22, s: 2, box: [1.4, 1.4, 2.4] },
-  { pack: 'holiday-kit', name: 'snowman', x: -38, z: -24, s: 2, box: [1.4, 1.4, 2] },
+  { pack: 'holiday-kit', name: 'snowman-hat', x: 24, z: 22, s: 2, box: [1.4, 1.4, 2.4], stand: false },
+  { pack: 'holiday-kit', name: 'snowman', x: -38, z: -24, s: 2, box: [1.4, 1.4, 2], stand: false },
   { pack: 'holiday-kit', name: 'sled-long', x: 36, z: 38, rot: 1, s: 2.4 },
-  { pack: 'holiday-kit', name: 'rocks-large', x: -42, z: 42, s: 1.4, box: [4, 3.4, 2.2] },
-  { pack: 'holiday-kit', name: 'rocks-large', x: 42, z: -44, rot: 2, s: 1.4, box: [4, 3.4, 2.2] },
-  { pack: 'holiday-kit', name: 'snow-bunker', x: 20, z: 40, s: 2.4, box: [3.2, 2, 1.3] },
+  { pack: 'holiday-kit', name: 'rocks-large', x: -42, z: 42, s: 1.4, box: [4, 3.4, 2.2], stand: false },
+  { pack: 'holiday-kit', name: 'rocks-large', x: 42, z: -44, rot: 2, s: 1.4, box: [4, 3.4, 2.2], stand: false },
+  { pack: 'holiday-kit', name: 'snow-bunker', x: 20, z: 40, s: 2.4, box: [3.2, 2, 1.0] },
   { pack: 'holiday-kit', name: 'bench', x: -4, z: -20, rot: 1, s: 2.2 },
   { pack: 'holiday-kit', name: 'bench', x: 4, z: 20, rot: 3, s: 2.2 },
   { pack: 'fantasy-town-kit', name: 'cart-high', x: 44, z: 22, rot: 0, s: 2.4, box: [1.6, 2.6, 1.6] },
-  { pack: 'holiday-kit', name: 'train-locomotive', x: -36, z: -42, rot: 1, s: 2.4, box: [1.4, 3.2, 2] },
+  { pack: 'holiday-kit', name: 'train-locomotive', x: -36, z: -42, rot: 1, s: 2.4, box: [1.6, 0.7, 1.05] },
+
+  // --- jump-up spots (2026-11-24). Survival Kit crates are 1.25 m at s 5; a jump clears 1.9 m. ---
+  // market crate stairs (NE): 1, 2, 3 crates high
+  ...crateColumn(40, -32, 1), ...crateColumn(41.25, -32, 2), ...crateColumn(42.5, -32, 3),
+  { pack: 'survival-kit', name: 'box-large', x: 38.4, z: -33.6, rot: 1, s: 5, box: [1.25, 2.5, 1.25] },
+  { pack: 'survival-kit', name: 'barrel', x: 39.5, z: -30.4, s: 4, box: [0.9, 0.9, 1.36] },
+  // lumber corner (NW): barrel → two crates
+  { pack: 'survival-kit', name: 'barrel', x: -40.5, z: -40, s: 4, box: [0.9, 0.9, 1.36] },
+  ...crateColumn(-41.7, -40, 2),
+  { pack: 'survival-kit', name: 'resource-planks', x: -42, z: -37.6, rot: 1, s: 4, box: [1.5, 2.5, 0.36] },
+  // stone ruin (SE): half block → block → block + half
+  { pack: 'fantasy-town-kit', name: 'wall-block-half', x: 38.75, z: 34, s: S, box: [S, S, S / 2] },
+  { pack: 'fantasy-town-kit', name: 'wall-block', x: 41.25, z: 34, s: S, box: [S, S, S] },
+  { pack: 'fantasy-town-kit', name: 'wall-block', x: 43.75, z: 34, s: S, box: [S, S, S] },
+  { pack: 'fantasy-town-kit', name: 'wall-block-half', x: 43.75, z: 34, y: S, s: S, box: [S, S, S / 2] },
+  { pack: 'fantasy-town-kit', name: 'pillar-stone', x: 37, z: 36.5, s: S, box: [0.4, 0.4, S], stand: false },
+  { pack: 'fantasy-town-kit', name: 'pillar-stone', x: 45.5, z: 31.5, s: S, box: [0.4, 0.4, S], stand: false },
+  // a crate sitting on the scaffold deck (SW), see SCAFFOLDS
+  ...crateColumn(-39.4, 30.6, 1, 2.6),
+  ...crateColumn(-40, 27.5, 1),
+  // the far ends of the avenue (N, S) and the cross street (W), so gifts reach the map edges
+  ...crateColumn(6.8, -47.5, 2), { pack: 'survival-kit', name: 'barrel', x: 5.3, z: -47.9, s: 4, box: [0.9, 0.9, 1.36] },
+  ...crateColumn(6.5, 47.5, 2), { pack: 'survival-kit', name: 'barrel', x: 5, z: 47.7, s: 4, box: [0.9, 0.9, 1.36] },
+  { pack: 'survival-kit', name: 'box-large', x: -46.5, z: -7.5, s: 5, box: [1.25, 2.5, 1.25] },
 ];
+function crateColumn(x, z, n, y0 = 0) {
+  return Array.from({ length: n }, (_, i) => ({ pack: 'survival-kit', name: 'box', x, z, y: y0 + i * 1.25, rot: i % 2, s: 5, box: [1.25, 1.25, 1.25] }));
+}
+
+// Wooden scaffolds (Survival Kit "structure-floor" at s 5): a 2.5 m deck at 2.6 m on four legs, open underneath.
+export const SCAFFOLDS = [{ x: -40, z: 30 }];
+export const SCAFFOLD_TOP = 2.6;
 // Street lamps along both streets and around the plaza (visual light + a thin post collider).
 export const LAMPS = [
   [7, 7], [-7, 7], [7, -7], [-7, -7],
@@ -152,7 +185,12 @@ for (const h of HOUSES) {
       box(h, q, w / 2 - T / 2, 0, T, d, H), // right
       seg(-w / 2, S / 2 - DOOR / 2), seg(S / 2 + DOOR / 2, w / 2), // front, door gap on the right tile
     );
-    for (const f of ROOMS[h.room]) if (f.box) COLLIDERS.push(box(h, q, f.lx, f.lz, ...rotSize(f.rot, f.box)));
+    for (const f of ROOMS[h.room]) {
+      if (!f.box) continue;
+      const b = box(h, q, f.lx, f.lz, ...rotSize(f.rot, f.box));
+      COLLIDERS.push(b);
+      PLATFORMS.push({ x: b.x, z: b.z, w: b.w, d: b.d, y: b.h }); // hop onto the bed or a box
+    }
   } else {
     COLLIDERS.push(box(h, q, 0, 0, w, d, H));
   }
@@ -177,7 +215,19 @@ for (const t of TOWERS) {
   COLLIDERS.push(box(t, q, -S + 0.1, 1.5 * S, 0.2, S, P), box(t, q, -0.1, 1.5 * S, 0.2, S, P)); // stair side rails
 }
 
-for (const p of PROPS) if (p.box) COLLIDERS.push(box(p, p.rot ?? 0, 0, 0, ...p.box));
+const STAND_MAX = 2.5; // taller boxes (tree trunks, the plaza tree) are never landing spots
+for (const p of PROPS) {
+  if (!p.box) continue;
+  const b = box(p, p.rot ?? 0, 0, 0, ...p.box, p.y ?? 0);
+  COLLIDERS.push(b);
+  if (p.stand !== false && p.box[2] <= STAND_MAX) PLATFORMS.push({ x: b.x, z: b.z, w: b.w, d: b.d, y: b.y + b.h });
+}
+for (const s of SCAFFOLDS) {
+  const L = 1.1; // legs sit just inside the 2.5 m deck
+  PLATFORMS.push({ x: s.x, z: s.z, w: 2.5, d: 2.5, y: SCAFFOLD_TOP });
+  COLLIDERS.push({ x: s.x, z: s.z, w: 2.5, d: 2.5, h: 0.15, y: SCAFFOLD_TOP - 0.15 }); // deck (camera + head bumps)
+  for (const [dx, dz] of [[-L, -L], [L, -L], [-L, L], [L, L]]) COLLIDERS.push({ x: s.x + dx, z: s.z + dz, w: 0.25, d: 0.25, h: SCAFFOLD_TOP - 0.15 });
+}
 for (const l of LAMPS) COLLIDERS.push(box(l, 0, 0, 0, 0.35, 0.35, 3));
 
 // --- treasure spots ----------------------------------------------------------------
@@ -188,7 +238,7 @@ const inHouse = (i, lx, lz) => { const h = HOUSES[i]; const [dx, dz] = rot(h.rot
 const behindHouse = (i, lx = 0) => { const h = HOUSES[i]; return inHouse(i, lx, -houseSize(h).d / 2 - 1.2); };
 const onTower = (i, lx = 1, lz = -1) => { const t = TOWERS[i]; const [dx, dz] = rot(t.rot, lx, lz); return { x: t.x + dx, z: t.z + dz, y: S }; };
 const underTower = (i) => { const t = TOWERS[i]; const [dx, dz] = rot(t.rot, 0.8, -0.8); return { x: t.x + dx, z: t.z + dz, y: 0 }; };
-const at = (x, z) => ({ x, z, y: 0 });
+const at = (x, z, y = 0) => ({ x, z, y });
 
 const SPOTS = [
   // inside the open houses (indexes into HOUSES)
@@ -211,5 +261,15 @@ const SPOTS = [
   inHouse(1, 0.3, -1.9), inHouse(5, 1.8, 1.6), inHouse(10, 1.75, -1.9), inHouse(12, 0.3, 2.1), inHouse(18, -1.9, 1.5), inHouse(21, 0.2, 1.6),
   behindHouse(2, 1.2), behindHouse(5, -1.2), behindHouse(11), behindHouse(15, -1.2), behindHouse(19), behindHouse(26, 1.2),
   at(31, -28), at(17.3, -24), at(-24, 22.4), at(0, -16.6), at(-36, -44.4), at(46, -44), at(20, 37.8), at(-4, -22.2),
+  // third batch (2026-11-24): up high, only by jumping
+  at(42.5, -32, 3.75), // top of the market crate stairs
+  at(-41.7, -40, 2.5), // lumber corner crates
+  at(43.75, 34, 3.75), // top of the stone ruin
+  at(-39.4, 30.6, 2.6 + 1.25), // crate on the scaffold deck
+  at(-40.6, 29.4), // under the scaffold
+  at(44, 22, 1.6), // in the tall cart
+  at(6.8, -47.5, 2.5), at(6.5, 47.5, 2.5), // crates at both ends of the avenue
+  // ground spots filling the emptiest stretches near the map edge
+  at(-48.2, -7.2), at(-46.5, -14.5), at(-26, -47.6), at(32, -47.6), at(34, -38.4), at(-28, 47.6), at(36, 47.6), at(32, 42),
 ];
 export const TREASURE_SPOTS = SPOTS.map((p) => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2), y: p.y }));
