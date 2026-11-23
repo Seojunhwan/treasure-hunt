@@ -14,7 +14,7 @@ import { showBanner, goFullscreen } from './install.js';
 import { mmss } from './format.js';
 import { MOVE_SPEED, PLAYER_RADIUS, PICKUP_RADIUS, PICKUP_HEIGHT, HINT_SECONDS, FALL_SPEED } from '../../shared/constants.js';
 import { resolveCollision, clampToCircle, heightAt, lineOfSight } from '../../shared/collision.js';
-import { SPAWN } from '../../shared/map.js';
+import { SPAWN, INTERIORS } from '../../shared/map.js';
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); // full retina res costs too much fps on mid-range phones
@@ -32,7 +32,14 @@ let myAvatar = null;
 const fx = createFx(scene);
 const others = createRemotePlayers(scene, fx);
 const treasures = createTreasures(scene, fx);
-const myTrail = createTrail(fx, (speed) => play('step' + ((Math.random() * 4) | 0), { volume: speed > 3.5 ? 0.45 : 0.3, rate: 0.9 + Math.random() * 0.2 }));
+let stepCount = 0;
+const myTrail = createTrail(fx, (speed) => {
+  const running = speed > 3.5;
+  if (running && stepCount++ % 2) return; // running: every other footprint, or it patters
+  play('step' + ((Math.random() * 4) | 0), running ? { volume: 0.32, rate: 0.72 + Math.random() * 0.08 } : { volume: 0.26, rate: 0.92 + Math.random() * 0.1 });
+});
+let fp = 0; // 0 third person … 1 first person (inside houses)
+const indoors = (x, z) => INTERIORS.some((b) => Math.abs(x - b.x) < b.w / 2 && Math.abs(z - b.z) < b.d / 2);
 
 const view = createFollowCamera();
 const controls = createControls(renderer.domElement);
@@ -92,13 +99,19 @@ renderer.setAnimationLoop((now) => {
   if (me) myTrail(player.position.x, player.position.y, player.position.z, player.rotation.y, Math.hypot(m.x, m.y) * MOVE_SPEED);
   const pos = player.position;
   const near = me && phase === 'playing' ? treasures.nearest(pos.x, pos.z) : null;
-  const canPick = !!near && near.dist <= PICKUP_RADIUS && Math.abs(near.y - pos.y) <= PICKUP_HEIGHT &&
+  // show at PICKUP_RADIUS, keep showing a little past it (server allows PICKUP_TOLERANCE) so a moving thumb still lands
+  const reach = pickBtn.hidden ? PICKUP_RADIUS : PICKUP_RADIUS + 0.4;
+  const canPick = !!near && near.dist <= reach && Math.abs(near.y - pos.y) <= PICKUP_HEIGHT &&
     lineOfSight([pos.x, pos.y + 1.2, pos.z], [near.x, near.y + 0.4, near.z]);
   if (pickBtn.hidden === canPick) pickBtn.hidden = !canPick; // touch the DOM only on change
   nearId = canPick ? near.id : null;
   hint.update(now, near && remaining <= HINT_SECONDS * 1000 ? near.dist : null);
   if (camOverride) { view.camera.position.set(...camOverride.pos); view.camera.lookAt(...camOverride.look); }
-  else view.follow(player.position, dt);
+  else {
+    fp += ((me && indoors(pos.x, pos.z) ? 1 : 0) - fp) * (1 - Math.exp(-dt * 5));
+    const camDist = view.follow(player.position, dt, fp);
+    if (myAvatar) myAvatar.root.visible = camDist > 0.9; // don't look at the inside of our own head
+  }
   atmosphere.update(dt, view.camera);
   renderer.render(scene, view.camera);
 });
@@ -144,7 +157,10 @@ function toast(text) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toastEl.hidden = true; }, 1600);
 }
-pickBtn.addEventListener('click', () => {
+// pointerdown, not click: iOS drops clicks while another finger is on the joystick
+pickBtn.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
   if (nearId === null) return;
   const id = nearId;
   net.socket.emit('treasure:pickup', { id, x: player.position.x, y: player.position.y, z: player.position.z }, ({ result, score }) => {

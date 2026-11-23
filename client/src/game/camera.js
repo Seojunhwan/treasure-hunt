@@ -18,7 +18,8 @@ export function createFollowCamera() {
       yaw -= dx * LOOK_SENSITIVITY;
       pitch = THREE.MathUtils.clamp(pitch + dy * LOOK_SENSITIVITY, CAMERA_MIN_PITCH, CAMERA_MAX_PITCH);
     },
-    follow(target, dt = 1) {
+    // fp: 0 = third person, 1 = first person (eased by the caller)
+    follow(target, dt = 1, fp = 0) {
       // eased pivot gives the camera a little weight; stairs and landings no longer jolt it
       const k = first ? 1 : 1 - Math.exp(-dt * 10);
       first = false;
@@ -26,10 +27,15 @@ export function createFollowCamera() {
       const o = [look.x, look.y, look.z];
       const d = [Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch)];
       // walls hide what's behind them (treasures in houses stay hidden from outside); pull in at once, ease back out
-      const want = Math.max(0.5, rayCast(o, d, CAMERA_DISTANCE) - WALL_GAP);
+      const reach = CAMERA_DISTANCE * (1 - fp);
+      const want = Math.max(0.5 * (1 - fp), rayCast(o, d, reach) - WALL_GAP * (1 - fp));
       dist = want < dist ? want : dist + (want - dist) * (1 - Math.exp(-dt * 4));
-      camera.position.set(o[0] + d[0] * dist, o[1] + d[1] * dist, o[2] + d[2] * dist);
-      camera.lookAt(look);
+      const eye = fp * 0.2; // eyes sit a bit above the orbit pivot
+      camera.position.set(o[0] + d[0] * dist, o[1] + d[1] * dist + eye, o[2] + d[2] * dist);
+      // third person looks at the pivot; first person looks ahead along the view direction
+      const ahead = Math.max(0, 1 - dist);
+      camera.lookAt(look.x - d[0] * ahead * 3, look.y + eye - d[1] * ahead * 3, look.z - d[2] * ahead * 3);
+      return dist;
     },
   };
 }

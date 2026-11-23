@@ -16,12 +16,16 @@ function makeLabel(text) {
   return sprite;
 }
 
-// Other players. shortcut: exponential smoothing toward the latest snapshot instead of
-// buffered interpolation; upgrade if movement looks jerky on real phones.
+// Other players are drawn a little in the past (DELAY) so there are always two snapshots to blend
+// between: steady motion and a steady speed for the walk/run animation, at the cost of 120 ms lag.
+const DELAY = 120;
+const lerpAngle = (a, b, t) => a + (Math.atan2(Math.sin(b - a), Math.cos(b - a))) * t;
+
 export function createRemotePlayers(scene, fx) {
   const others = new Map();
   return {
     sync(list, selfId) {
+      const now = performance.now();
       const seen = new Set();
       for (const p of list) {
         if (p.id === selfId) continue;
@@ -33,10 +37,11 @@ export function createRemotePlayers(scene, fx) {
           avatar.root.add(label);
           avatar.root.position.set(p.x, p.y ?? 0, p.z);
           scene.add(avatar.root);
-          o = { avatar, label, target: p, trail: createTrail(fx) };
+          o = { avatar, label, buf: [], speed: 0, trail: createTrail(fx) };
           others.set(p.id, o);
         }
-        o.target = p;
+        o.buf.push({ t: now, x: p.x, y: p.y ?? 0, z: p.z, ry: p.ry });
+        if (o.buf.length > 8) o.buf.shift();
       }
       for (const [id, o] of others) {
         if (seen.has(id)) continue;
@@ -46,16 +51,21 @@ export function createRemotePlayers(scene, fx) {
       }
     },
     update(dt) {
-      const k = 1 - Math.exp(-dt * 12);
-      for (const { avatar, target, trail } of others.values()) {
-        const p = avatar.root.position;
-        const dx = (target.x - p.x) * k, dz = (target.z - p.z) * k;
-        p.x += dx; p.z += dz;
-        p.y += ((target.y ?? 0) - p.y) * k;
-        avatar.root.rotation.y = target.ry;
-        const speed = dt > 0 ? Math.hypot(dx, dz) / dt : 0;
-        avatar.setSpeed(speed);
-        trail(p.x, p.y, p.z, target.ry, speed);
+      const renderT = performance.now() - DELAY;
+      for (const o of others.values()) {
+        const { avatar, buf, trail } = o;
+        // newest pair (a, b) that brackets renderT; before/after the buffer just hold the end
+        let i = buf.length - 1;
+        while (i > 0 && buf[i - 1].t > renderT) i--;
+        const a = buf[Math.max(0, i - 1)], b = buf[i];
+        const t = b.t > a.t ? Math.min(1, Math.max(0, (renderT - a.t) / (b.t - a.t))) : 1;
+        const pos = avatar.root.position;
+        pos.set(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t);
+        avatar.root.rotation.y = lerpAngle(a.ry, b.ry, t);
+        const seg = b.t > a.t && renderT <= b.t ? Math.hypot(b.x - a.x, b.z - a.z) / ((b.t - a.t) / 1000) : 0;
+        o.speed += (seg - o.speed) * (1 - Math.exp(-dt * 8)); // smoothed so the clip doesn't flicker
+        avatar.setSpeed(o.speed);
+        trail(pos.x, pos.y, pos.z, avatar.root.rotation.y, o.speed);
         avatar.update(dt);
       }
     },

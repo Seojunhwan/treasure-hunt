@@ -44,8 +44,14 @@ export function createAvatar(variant) {
   });
   return {
     root,
-    // speed in m/s picks the clip
-    setSpeed(v) { play(v < 0.3 ? 'idle' : v < 3.5 ? 'walk' : 'sprint'); },
+    // speed in m/s picks the clip; separate up/down thresholds stop it flickering at the boundary
+    setSpeed(v) {
+      const c = current ?? 'idle';
+      const next = c === 'idle' ? (v > 0.5 ? (v > 3.8 ? 'sprint' : 'walk') : 'idle')
+        : c === 'walk' ? (v < 0.25 ? 'idle' : v > 3.8 ? 'sprint' : 'walk')
+        : (v < 0.25 ? 'idle' : v < 3.0 ? 'walk' : 'sprint');
+      play(next);
+    },
     pickUp() {
       const p = actions['pick-up'];
       if (!p) return;

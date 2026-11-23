@@ -140,8 +140,10 @@ export const COLLIDERS = []; // { x, z, w, d, h, y } axis-aligned, y = base heig
 export const PLATFORMS = []; // { x, z, w, d, y } flat walkable tops
 export const RAMPS = []; // { x, z, w, d, axis: 'x' | 'z', y0, y1 } height goes y0 → y1 from min to max edge
 
+export const INTERIORS = []; // { x, z, w, d } inside of each open house, for the first-person camera
 for (const h of HOUSES) {
   const { w, d, H } = houseSize(h);
+  if (h.open) INTERIORS.push(box(h, h.rot, 0, 0, w - 2 * T, d - 2 * T, H));
   const q = h.rot;
   if (h.open) {
     const seg = (a, b) => box(h, q, (a + b) / 2, d / 2 - T / 2, b - a, T, H);
