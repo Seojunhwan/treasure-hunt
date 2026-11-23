@@ -43,8 +43,8 @@ io.on('connection', (socket) => {
     player.socketId = socket.id; // a newer tab with the same token takes over
     player.lastMoveAt = Date.now();
     socket.join('players');
-    const { token, id, name, x, z, ry, score } = player;
-    ack({ token, id, name, x, z, ry, score });
+    const { token, id, name, x, y, z, ry, score } = player;
+    ack({ token, id, name, x, y, z, ry, score });
   });
 
   socket.on('player:move', (msg) => {
@@ -56,10 +56,13 @@ io.on('connection', (socket) => {
     if (typeof ack !== 'function' || !player || player.socketId !== socket.id) return;
     const now = Date.now();
     // the tap carries the freshest position; it still goes through the speed check
-    if (Number.isFinite(msg?.x) && Number.isFinite(msg?.z)) move(game, player, { x: msg.x, z: msg.z, ry: player.ry }, now);
+    if (Number.isFinite(msg?.x) && Number.isFinite(msg?.z)) move(game, player, { x: msg.x, z: msg.z, y: msg.y, ry: player.ry }, now);
     const result = tryPickup(game, player, msg?.id, now);
     ack({ result, score: player.score });
-    if (result === 'ok') broadcast();
+    if (result === 'ok') {
+      socket.to('players').emit('treasure:found', { playerId: player.id, treasureId: msg.id }); // others see the pop + pick-up animation
+      broadcast();
+    }
   });
 
   socket.on('admin:auth', (token, ack) => {

@@ -1,7 +1,7 @@
 import { randomUUID, timingSafeEqual, createHash } from 'node:crypto';
-import { MOVE_SPEED, NAME_MAX, SPEED_TOLERANCE, PICKUP_RADIUS, PICKUP_TOLERANCE, RANKING_SIZE } from '../shared/constants.js';
+import { MOVE_SPEED, NAME_MAX, SPEED_TOLERANCE, PICKUP_RADIUS, PICKUP_TOLERANCE, PICKUP_HEIGHT, RANKING_SIZE } from '../shared/constants.js';
 import { SPAWN, TREASURES } from '../shared/map.js';
-import { clampToCircle } from '../shared/collision.js';
+import { clampToCircle, lineOfSight } from '../shared/collision.js';
 
 // phase: 'waiting' (stuck in spawn plaza) → 'playing' → 'ended'
 export function createGame(durationMs) {
@@ -26,7 +26,7 @@ export function reset(state) {
   state.endsAt = 0;
   for (const t of state.treasures) t.foundBy = null;
   for (const p of state.players.values()) {
-    Object.assign(p, spawnPoint(), { score: 0, scoredAt: 0 });
+    Object.assign(p, spawnPoint(), { y: 0, score: 0, scoredAt: 0 });
   }
   return [...state.players.values()];
 }
@@ -76,7 +76,7 @@ export function join(state, { token, name }, now) {
   const t = typeof token === 'string' && TOKEN_RE.test(token) ? token : randomUUID();
   const player = {
     token: t, id: randomUUID().slice(0, 8), name: uniqueName(state, clean, t),
-    ...spawnPoint(), ry: 0,
+    ...spawnPoint(), y: 0, ry: 0,
     score: 0, scoredAt: 0, lastMoveAt: now, online: true,
   };
   state.players.set(t, player);
@@ -87,12 +87,13 @@ export function join(state, { token, name }, now) {
 export function move(state, player, msg, now) {
   if (state.phase === 'ended') return false; // frozen after the whistle
   const { x, z, ry } = msg ?? {};
-  if (![x, z, ry].every(Number.isFinite)) return false;
+  const y = msg?.y ?? 0;
+  if (![x, z, y, ry].every(Number.isFinite) || y < 0 || y > 10) return false;
   const dt = Math.min((now - player.lastMoveAt) / 1000, 1);
   const allowed = MOVE_SPEED * SPEED_TOLERANCE * dt + 0.5; // +0.5 m absorbs network jitter
   if (Math.hypot(x - player.x, z - player.z) > allowed) return false;
   const p = state.phase === 'waiting' ? clampToCircle(x, z, SPAWN) : { x, z };
-  Object.assign(player, p, { ry, lastMoveAt: now });
+  Object.assign(player, p, { y, ry, lastMoveAt: now });
   return true;
 }
 
@@ -103,6 +104,8 @@ export function tryPickup(state, player, treasureId, now) {
   if (state.phase !== 'playing' || !t || !Number.isInteger(treasureId)) return 'invalid';
   if (t.foundBy) return 'taken';
   if (Math.hypot(player.x - t.x, player.z - t.z) > PICKUP_RADIUS + PICKUP_TOLERANCE) return 'far';
+  if (Math.abs((player.y ?? 0) - t.y) > PICKUP_HEIGHT) return 'far';
+  if (!lineOfSight([player.x, (player.y ?? 0) + 1.2, player.z], [t.x, t.y + 0.4, t.z])) return 'far'; // no grabbing through walls
   t.foundBy = player.id;
   player.score += 1;
   player.scoredAt = now; // earlier wins a tie
@@ -120,7 +123,7 @@ export function ranking(state) {
 
 export function snapshot(state, now) {
   const players = [];
-  for (const p of state.players.values()) if (p.online) players.push({ id: p.id, name: p.name, x: p.x, z: p.z, ry: p.ry });
+  for (const p of state.players.values()) if (p.online) players.push({ id: p.id, name: p.name, x: p.x, y: p.y ?? 0, z: p.z, ry: p.ry });
   return {
     phase: state.phase,
     remainingMs: remainingMs(state, now),

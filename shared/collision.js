@@ -1,13 +1,17 @@
-import { MAP_HALF, BUILDINGS } from './map.js';
-import { PLAYER_HEIGHT } from './constants.js';
+import { MAP_HALF, COLLIDERS, PLATFORMS, RAMPS } from './map.js';
+import { PLAYER_HEIGHT, STEP_HEIGHT } from './constants.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-// Pushes a circle (x, z, r) out of every box and back inside the map. Pushing out along
-// the contact normal is what makes the player slide along walls instead of sticking.
-export function resolveCollision(x, z, r, boxes = BUILDINGS) {
+// A box blocks a walker standing at height y if it reaches above their step height and
+// starts below their head. So roofs and decks overhead, or posts under a deck, don't block.
+const blocks = (b, y) => (b.y ?? 0) + b.h > y + STEP_HEIGHT && (b.y ?? 0) < y + PLAYER_HEIGHT;
+
+// Pushes a circle (x, z, r) at height y out of every blocking box and back inside the map.
+// Pushing out along the contact normal is what makes the player slide along walls.
+export function resolveCollision(x, z, r, y = 0, boxes = COLLIDERS) {
   for (const b of boxes) {
-    if ((b.y ?? 0) >= PLAYER_HEIGHT) continue; // roofs: walk underneath
+    if (!blocks(b, y)) continue;
     const minX = b.x - b.w / 2, maxX = b.x + b.w / 2, minZ = b.z - b.d / 2, maxZ = b.z + b.d / 2;
     const dx = x - clamp(x, minX, maxX), dz = z - clamp(z, minZ, maxZ);
     const d2 = dx * dx + dz * dz;
@@ -27,14 +31,29 @@ export function resolveCollision(x, z, r, boxes = BUILDINGS) {
   return { x: clamp(x, -lim, lim), z: clamp(z, -lim, lim) };
 }
 
+const inside = (s, x, z) => Math.abs(x - s.x) <= s.w / 2 && Math.abs(z - s.z) <= s.d / 2;
+
+// Height of the highest surface under (x, z) that a walker at height y can step onto.
+export function heightAt(x, z, y = 0, platforms = PLATFORMS, ramps = RAMPS) {
+  let h = 0;
+  const reach = y + STEP_HEIGHT;
+  for (const p of platforms) if (p.y > h && p.y <= reach && inside(p, x, z)) h = p.y;
+  for (const r of ramps) {
+    if (!inside(r, x, z)) continue;
+    const t = r.axis === 'x' ? (x - (r.x - r.w / 2)) / r.w : (z - (r.z - r.d / 2)) / r.d;
+    const v = r.y0 + (r.y1 - r.y0) * t;
+    if (v > h && v <= reach) h = v;
+  }
+  return h;
+}
+
 export function clampToCircle(x, z, c) {
   const dx = x - c.x, dz = z - c.z, d = Math.hypot(dx, dz);
   return d <= c.r ? { x, z } : { x: c.x + (dx / d) * c.r, z: c.z + (dz / d) * c.r };
 }
 
-// Distance along a ray (origin o, unit direction d) to the first box it hits, capped at max.
-// Boxes are the map's: x/z center, w/d size, h height, optional y base. Slab method.
-export function rayCast(o, d, max, boxes = BUILDINGS) {
+// Distance along a ray (origin o, unit direction d) to the first box it hits, capped at max. Slab method.
+export function rayCast(o, d, max, boxes = COLLIDERS) {
   let best = max;
   for (const b of boxes) {
     const y0 = b.y ?? 0;
@@ -49,4 +68,12 @@ export function rayCast(o, d, max, boxes = BUILDINGS) {
     if (t0 <= t1 && t0 < best) best = t0;
   }
   return best;
+}
+
+// True if nothing solid sits between two points (used so treasures can't be grabbed through walls).
+export function lineOfSight(a, b, boxes = COLLIDERS) {
+  const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+  const len = Math.hypot(...d);
+  if (len < 1e-6) return true;
+  return rayCast(a, d.map((v) => v / len), len, boxes) >= len - 1e-6;
 }

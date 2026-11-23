@@ -1,15 +1,10 @@
 import { HINT_RANGE, PICKUP_RADIUS } from '../../../shared/constants.js';
+import { audioCtx, sfxOut } from './audio.js';
 
 // "Hot and cold" for the last minutes: beeps speed up and the screen edge glows as you
 // approach the nearest unfound treasure. The glow covers phones on silent.
-let ctx = null;
-export function unlockAudio() {
-  // iOS only allows audio after a tap, so call this from tap handlers
-  ctx ??= new AudioContext();
-  if (ctx.state === 'suspended') ctx.resume();
-}
-
 function beep(closeness) {
+  const ctx = audioCtx();
   if (!ctx || ctx.state !== 'running') return;
   const t = ctx.currentTime;
   const osc = ctx.createOscillator(), gain = ctx.createGain();
@@ -17,7 +12,7 @@ function beep(closeness) {
   gain.gain.setValueAtTime(0.0001, t);
   gain.gain.exponentialRampToValueAtTime(0.25, t + 0.01);
   gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
-  osc.connect(gain).connect(ctx.destination);
+  osc.connect(gain).connect(sfxOut());
   osc.start(t);
   osc.stop(t + 0.1);
 }

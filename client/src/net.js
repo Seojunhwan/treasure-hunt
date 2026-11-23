@@ -8,7 +8,7 @@ function load() {
 }
 
 // Wraps the socket. Remembers the token so a refresh or a locked phone rejoins as the same player.
-export function connect({ onStatus, onState, onCorrect }) {
+export function connect({ onStatus, onState, onCorrect, onFound }) {
   const socket = io();
   let session = load();
   let joined = false;
@@ -32,6 +32,7 @@ export function connect({ onStatus, onState, onCorrect }) {
   socket.on('disconnect', onStatus);
   socket.on('world:state', onState);
   socket.on('player:correct', onCorrect);
+  socket.on('treasure:found', ({ playerId, treasureId }) => onFound?.(playerId, treasureId));
 
   let last = '';
   return {
@@ -41,7 +42,7 @@ export function connect({ onStatus, onState, onCorrect }) {
     startSending(getPose) {
       setInterval(() => {
         const pose = getPose();
-        const key = `${pose.x.toFixed(2)},${pose.z.toFixed(2)},${pose.ry.toFixed(2)}`;
+        const key = `${pose.x.toFixed(2)},${pose.y.toFixed(2)},${pose.z.toFixed(2)},${pose.ry.toFixed(2)}`;
         if (key === last || !socket.connected) return;
         last = key;
         socket.volatile.emit('player:move', pose);

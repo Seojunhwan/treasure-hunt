@@ -160,4 +160,5 @@ export function tryPickup(state, playerId, treasureId, now) {
 - 게임 도중 참가 허용 (2026-11-23)
 - 시점: 3인칭, 숨김은 가림 위주 (2026-11-23)
 - 전체화면: iPhone은 "홈 화면에 추가" 안내 배너, Android는 입장 탭 시 Fullscreen API. http 사내 주소에서도 iPhone 홈 화면 앱 전체화면 동작 확인 (2026-11-23)
+- 비주얼: 스타일 B "포근한 저녁 마을" (Kenney Fantasy Town Kit 집 + Holiday Kit 트리/소품 + Mini Characters, 밤하늘, 가로등 불빛, 눈) (2026-11-23)
 - 화면: 가로 모드 전용, 세로면 "가로로 돌려주세요" 안내로 가림 (iOS는 방향 고정 API가 없음) (2026-11-23)

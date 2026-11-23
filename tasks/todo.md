@@ -181,16 +181,19 @@ Plan: tasks/plan.md · Spec: SPEC.md
 
 ## Phase 3: 비주얼 고도화
 
+> 2026-11-23 사용자 결정: 스타일 B. 고도화 순서 1 조명/분위기 → 2 손맛 → 3 소리 → 5 후처리(블룸·색보정) → 4 밀리는 소품(물리). 5, 4는 후순위.
+> 진행: 맵(집 28채 중 실내 6채, 망루 3개, 계단·2층 높이 이동), 보물 40개 수작업 배치 + 도달 가능성 BFS 테스트, 1·2·3 구현 완료. 실기기 확인 대기.
+
 ### Task 11: 에셋 후보 조사 + 비교 화면 + 사용자 선택
 **Description:** CC0 겨울/마을/캐릭터 팩 후보(Kenney, Quaternius 등)를 받아 라이선스를 확인하고, 같은 장면에 놓은 비교 스크린샷을 만든다.
 
 **Acceptance criteria:**
-- [ ] 후보 2~3개 조합의 스크린샷과 각 팩 라이선스 원문 확인
-- [ ] 사용자가 1개 조합 선택
-- [ ] `public/assets/LICENSE.md`에 출처와 라이선스 기록
+- [x] 후보 2~3개 조합의 스크린샷과 각 팩 라이선스 원문 확인
+- [x] 사용자가 1개 조합 선택
+- [x] `public/assets/LICENSE.md`에 출처와 라이선스 기록
 
 **Verification:**
-- [ ] Manual check: 사용자 승인
+- [x] Manual check: 사용자 승인
 
 **Dependencies:** Checkpoint 2
 **Files likely touched:** `public/assets/`, `public/assets/LICENSE.md`
@@ -201,7 +204,7 @@ Plan: tasks/plan.md · Spec: SPEC.md
 
 **Acceptance criteria:**
 - [ ] 40명이 보여도 중급 폰 30fps 이상 (봇으로 측정)
-- [ ] 이동 속도에 따라 대기/달리기 전환
+- [x] 이동 속도에 따라 대기/달리기 전환
 
 **Verification:**
 - [ ] Manual check: 봇 45개 + 폰 FPS
@@ -214,12 +217,12 @@ Plan: tasks/plan.md · Spec: SPEC.md
 **Description:** 임시 박스를 실제 건물과 소품으로 바꾸고, 들어갈 수 있는 건물, 골목, 2층 발코니/망루를 배치한다. 충돌 박스를 모델에 맞춘다.
 
 **Acceptance criteria:**
-- [ ] 충돌 박스와 보이는 모델이 어긋나지 않음 (끼임, 허공 벽 없음)
-- [ ] 들어갈 수 있는 건물 5채 이상, 계단으로 오르는 2층 공간 2곳 이상
+- [x] 충돌 박스와 보이는 모델이 어긋나지 않음 (끼임, 허공 벽 없음)
+- [x] 들어갈 수 있는 건물 5채 이상, 계단으로 오르는 2층 공간 2곳 이상
 - [ ] 사용자가 폰으로 둘러보고 승인
 
 **Verification:**
-- [ ] Tests pass: `npm test` (스폰 광장과 보물 좌표가 충돌 박스 안에 없는지 검사)
+- [x] Tests pass: `npm test` (스폰 광장과 보물 좌표가 충돌 박스 안에 없는지 검사)
 - [ ] Manual check: 맵 전체 한 바퀴
 
 **Dependencies:** Task 11
@@ -230,7 +233,7 @@ Plan: tasks/plan.md · Spec: SPEC.md
 **Description:** 겨울 저녁 조명, 안개, 눈 파티클, 보물 반짝임과 획득 효과, 효과음을 넣는다.
 
 **Acceptance criteria:**
-- [ ] 실시간 그림자 없이도 입체감 있는 조명
+- [x] 실시간 그림자 없이도 입체감 있는 조명
 - [ ] 연출을 모두 켜도 중급 폰 30fps 이상
 
 **Verification:**
@@ -255,6 +258,32 @@ Plan: tasks/plan.md · Spec: SPEC.md
 **Files likely touched:** `public/assets/`, `client/src/game/assets.js`, `vite.config.js`
 **Estimated scope:** M
 
+### Task 15a: 실기기 피드백 개선 (2026-11-24 iPhone 테스트)
+**Description:** iPhone + 봇 45명 테스트에서 나온 문제 4가지. 결과: 초반 47fps → 흩어지면 59~60fps, 소리/계단/보물 정상.
+
+**Acceptance criteria:**
+- [ ] 달릴 때 발소리가 덜 경박하게: 달리기 중엔 발소리 간격을 늘리고 음높이·볼륨을 낮춤
+- [ ] 다른 플레이어 걷기 모션이 부드럽게: 서버 스냅샷 버퍼 보간(약 100ms 뒤를 재생) + 속도 기반 애니메이션 전환에 히스테리시스
+- [ ] 이동 중에도 "줍기" 버튼이 한 번에 눌림: click 대신 pointerdown, 버튼 터치 영역 확대, 범위를 벗어나도 잠깐 유지
+- [ ] 실내에 들어가면 카메라가 자연스럽게 1인칭으로 전환, 나오면 3인칭 복귀 (내 캐릭터는 1인칭에서 숨김)
+
+**Verification:**
+- [ ] Manual check: iPhone + 봇 45명으로 네 항목 재확인
+
+**Dependencies:** Task 14
+**Files likely touched:** `client/src/main.js`, `client/src/game/players.js`, `client/src/game/camera.js`, `client/src/game/fx.js`, `client/index.html`
+**Estimated scope:** M
+
+### Task 15b: 후처리 (블룸, 색보정) — 후순위
+**Acceptance criteria:**
+- [ ] 가로등·창문 불빛이 은은하게 번짐, 색감 보정
+- [ ] iPhone 봇 45명에서 50fps 이상 유지 (안 되면 저사양 자동 끔)
+
+### Task 15c: 밀리는 소품 (물리) — 후순위
+**Acceptance criteria:**
+- [ ] 눈사람·선물더미·썰매 등이 부딪히면 밀리거나 넘어짐
+- [ ] iPhone 성능 예산 유지
+
 ## Checkpoint 3: 비주얼 승인
 - [ ] 실기기 30fps 이상, 다운로드 15MB 이하
 - [ ] 사용자가 실제 폰으로 보고 비주얼 승인
@@ -267,11 +296,11 @@ Plan: tasks/plan.md · Spec: SPEC.md
 **Description:** 가림 위주 원칙(실내, 골목, 물체 뒤/밑, 2층)으로 보물 40개를 배치한다.
 
 **Acceptance criteria:**
-- [ ] 40개 모두 걸어서 도달 가능하고 2m 안에 설 수 있음 (테스트)
+- [x] 40개 모두 걸어서 도달 가능하고 2m 안에 설 수 있음 (테스트)
 - [ ] 리허설에서 15분 안에 전부 발견되지 않을 정도의 난이도
 
 **Verification:**
-- [ ] Tests pass: `npm test -- map`
+- [x] Tests pass: `npm test -- map`
 - [ ] Manual check: 리허설 결과로 조정
 
 **Dependencies:** Task 13

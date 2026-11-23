@@ -6,7 +6,10 @@ export const RANKING_SIZE = 10;
 export const HINT_SECONDS = 180; // hint turns on when this much time is left
 // m; beyond this the hint stays quiet. 25 m was always-on: with 40 treasures the nearest is ~7.5 m away (median)
 export const HINT_RANGE = 12;
-export const PLAYER_HEIGHT = 1.8; // boxes starting above this (roofs) don't block walking
+export const PLAYER_HEIGHT = 1.8;
+export const STEP_HEIGHT = 0.6; // highest ledge a walker steps onto without stairs
+export const FALL_SPEED = 9; // m/s when stepping off a deck
+export const PICKUP_HEIGHT = 1.2; // max height difference between player feet and treasure
 export const NAME_MAX = 12;
 export const GAME_SECONDS_DEFAULT = 900; // 15 min; server env GAME_SECONDS overrides for testing
 export const TICK_MS = 100; // position send + broadcast rate (10 Hz)

@@ -1,17 +1,6 @@
 import * as THREE from 'three';
-
-const body = new THREE.CapsuleGeometry(0.4, 1, 4, 8);
-const noseGeo = new THREE.BoxGeometry(0.2, 0.2, 0.3);
-const noseMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
-
-export function makeAvatar(color) {
-  const mesh = new THREE.Mesh(body, new THREE.MeshLambertMaterial({ color }));
-  mesh.position.y = 0.9;
-  const nose = new THREE.Mesh(noseGeo, noseMat);
-  nose.position.set(0, 0.4, -0.45); // shows which way the capsule faces
-  mesh.add(nose);
-  return mesh;
-}
+import { createAvatar, variantFor } from './avatar.js';
+import { createTrail } from './fx.js';
 
 function makeLabel(text) {
   const c = document.createElement('canvas');
@@ -23,15 +12,13 @@ function makeLabel(text) {
   g.fillStyle = '#fff'; g.fillText(text, 128, 32);
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthWrite: false }));
   sprite.scale.set(2, 0.5, 1);
-  sprite.position.y = 1.3;
+  sprite.position.y = 2.1;
   return sprite;
 }
 
-const colorFor = (id) => new THREE.Color().setHSL((parseInt(id.slice(0, 6), 16) % 360) / 360, 0.6, 0.55);
-
 // Other players. shortcut: exponential smoothing toward the latest snapshot instead of
 // buffered interpolation; upgrade if movement looks jerky on real phones.
-export function createRemotePlayers(scene) {
+export function createRemotePlayers(scene, fx) {
   const others = new Map();
   return {
     sync(list, selfId) {
@@ -41,32 +28,38 @@ export function createRemotePlayers(scene) {
         seen.add(p.id);
         let o = others.get(p.id);
         if (!o) {
-          const mesh = makeAvatar(colorFor(p.id));
-          mesh.add(makeLabel(p.name));
-          mesh.position.set(p.x, 0.9, p.z);
-          scene.add(mesh);
-          o = { mesh, target: p };
+          const avatar = createAvatar(variantFor(p.id));
+          const label = makeLabel(p.name);
+          avatar.root.add(label);
+          avatar.root.position.set(p.x, p.y ?? 0, p.z);
+          scene.add(avatar.root);
+          o = { avatar, label, target: p, trail: createTrail(fx) };
           others.set(p.id, o);
         }
         o.target = p;
       }
       for (const [id, o] of others) {
         if (seen.has(id)) continue;
-        scene.remove(o.mesh);
-        o.mesh.material.dispose();
-        const label = o.mesh.children.find((c) => c.isSprite);
-        label.material.map.dispose(); label.material.dispose();
+        scene.remove(o.avatar.root);
+        o.label.material.map.dispose(); o.label.material.dispose();
         others.delete(id);
       }
     },
     update(dt) {
       const k = 1 - Math.exp(-dt * 12);
-      for (const { mesh, target } of others.values()) {
-        mesh.position.x += (target.x - mesh.position.x) * k;
-        mesh.position.z += (target.z - mesh.position.z) * k;
-        mesh.rotation.y = target.ry;
+      for (const { avatar, target, trail } of others.values()) {
+        const p = avatar.root.position;
+        const dx = (target.x - p.x) * k, dz = (target.z - p.z) * k;
+        p.x += dx; p.z += dz;
+        p.y += ((target.y ?? 0) - p.y) * k;
+        avatar.root.rotation.y = target.ry;
+        const speed = dt > 0 ? Math.hypot(dx, dz) / dt : 0;
+        avatar.setSpeed(speed);
+        trail(p.x, p.y, p.z, target.ry, speed);
+        avatar.update(dt);
       }
     },
+    pickUp(id) { others.get(id)?.avatar.pickUp(); },
     get count() { return others.size; },
   };
 }

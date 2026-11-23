@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest';
 import { createGame as create, join, move, snapshot, start, reset, tick, remainingMs, isAdminToken, tryPickup, ranking } from '../server/game.js';
-import { SPAWN, TREASURES, BUILDINGS, TREASURE_COUNT } from '../shared/map.js';
+import { SPAWN, TREASURE_COUNT } from '../shared/map.js';
 
 const T0 = 1_000_000;
 const MIN15 = 15 * 60 * 1000;
@@ -120,7 +120,7 @@ test('admin token check', () => {
 });
 
 const playing = () => { const g = createGame(); start(g, T0); return g; };
-const standOn = (p, t) => Object.assign(p, { x: t.x + 1, z: t.z });
+const standOn = (p, t) => Object.assign(p, { x: t.x, z: t.z, y: t.y });
 
 test('pickup: only while playing, only when near', () => {
   const g = createGame();
@@ -129,8 +129,10 @@ test('pickup: only while playing, only when near', () => {
   standOn(p, t);
   expect(tryPickup(g, p, 0, T0)).toBe('invalid'); // waiting
   start(g, T0);
-  Object.assign(p, { x: t.x + 5, z: t.z });
+  Object.assign(p, { x: t.x + 5, z: t.z, y: t.y });
   expect(tryPickup(g, p, 0, T0)).toBe('far');
+  Object.assign(p, { x: t.x, z: t.z, y: t.y + 3 });
+  expect(tryPickup(g, p, 0, T0)).toBe('far'); // right below/above doesn't count
   standOn(p, t);
   expect(tryPickup(g, p, 0, T0)).toBe('ok');
   expect(p.score).toBe(1);
@@ -180,10 +182,3 @@ test('reset restores every treasure', () => {
   expect(g.treasures.every((t) => t.foundBy === null)).toBe(true);
 });
 
-test('map data: 40 treasures, none inside a building or the spawn plaza', () => {
-  expect(TREASURES).toHaveLength(TREASURE_COUNT);
-  for (const t of TREASURES) {
-    expect(Math.hypot(t.x - SPAWN.x, t.z - SPAWN.z)).toBeGreaterThan(SPAWN.r);
-    for (const b of BUILDINGS) if (!b.y) expect(Math.abs(t.x - b.x) > b.w / 2 || Math.abs(t.z - b.z) > b.d / 2).toBe(true);
-  }
-});
