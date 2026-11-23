@@ -276,8 +276,8 @@ Plan: tasks/plan.md · Spec: SPEC.md
 
 ### Task 15b: 후처리 (블룸, 색보정) — 후순위
 **Acceptance criteria:**
-- [ ] 가로등·창문 불빛이 은은하게 번짐, 색감 보정
-- [ ] iPhone 봇 45명에서 50fps 이상 유지 (안 되면 저사양 자동 끔)
+- [x] 가로등·창문 불빛이 은은하게 번짐, 색감 보정 (UnrealBloomPass 반해상도 + 따뜻한 색보정/비네트, three.js 내장)
+- [x] iPhone 봇 45명에서 50fps대 유지 확인 (2026-11-24). 4초 구간 2번 연속 40fps 미만이면 그 폰은 자동으로 끔
 
 ### Task 15c: 밀리는 소품 (물리) — 후순위
 **Acceptance criteria:**

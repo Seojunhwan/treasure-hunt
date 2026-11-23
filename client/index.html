@@ -44,7 +44,7 @@
     #timer { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
     #msg { font-size: 15px; font-weight: 600; }
     #msg:empty { display: none; }
-    #fps { position: fixed; top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); font: 12px system-ui, sans-serif; color: #fff; background: rgba(0,0,0,.5); padding: 2px 6px; border-radius: 4px; }
+    #fps { pointer-events: auto; position: fixed; top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); font: 12px system-ui, sans-serif; color: #fff; background: rgba(0,0,0,.5); padding: 6px 10px; border-radius: 4px; }
     #fps:empty { display: none; }
     #rotate { display: none; position: fixed; inset: 0; z-index: 10; align-items: center; justify-content: center; flex-direction: column; gap: 12px; background: #0b1220; color: #fff; font: 600 18px/1.4 system-ui, sans-serif; text-align: center; }
     @media (orientation: portrait) { #rotate { display: flex; } }

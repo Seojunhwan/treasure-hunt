@@ -3,6 +3,7 @@ import { createControls } from './game/controls.js';
 import { createFollowCamera } from './game/camera.js';
 import { buildWorld } from './game/world.js';
 import { createAtmosphere } from './game/atmosphere.js';
+import { createPost } from './game/post.js';
 import { createRemotePlayers } from './game/players.js';
 import { createAvatar, variantFor } from './game/avatar.js';
 import { createTreasures } from './game/treasures.js';
@@ -42,6 +43,7 @@ let fp = 0; // 0 third person … 1 first person (inside houses)
 const indoors = (x, z) => INTERIORS.some((b) => Math.abs(x - b.x) < b.w / 2 && Math.abs(z - b.z) < b.d / 2);
 
 const view = createFollowCamera();
+const post = createPost(renderer, scene, view.camera);
 const controls = createControls(renderer.domElement);
 let me = null; // { id, name } once joined
 let phase = 'waiting';
@@ -56,6 +58,7 @@ function resize() {
   const { clientWidth: w, clientHeight: h } = renderer.domElement;
   if (!w || !h) return;
   renderer.setSize(w, h, false);
+  post.setSize(w, h);
   view.camera.aspect = w / h;
   view.camera.updateProjectionMatrix();
 }
@@ -64,11 +67,13 @@ resize();
 
 const debug = new URLSearchParams(location.search).has('debug');
 const fpsEl = document.getElementById('fps');
+// debug: tap the fps badge to flip post-processing and compare on the phone
+fpsEl.addEventListener('pointerdown', () => post.toggle());
 let frames = 0, fpsAt = 0;
 let prev = 0;
 renderer.setAnimationLoop((now) => {
   if (debug && ++frames && now - fpsAt > 1000) {
-    fpsEl.textContent = `${Math.round((frames * 1000) / (now - fpsAt))} fps · ${others.count + (me ? 1 : 0)}명`;
+    fpsEl.textContent = `${Math.round((frames * 1000) / (now - fpsAt))} fps · ${others.count + (me ? 1 : 0)}명${post.enabled ? ' · ✨' : ''}`;
     frames = 0; fpsAt = now;
   }
   const dt = Math.min((now - prev) / 1000, 0.1); // cap avoids a huge jump after the tab was backgrounded
@@ -113,7 +118,7 @@ renderer.setAnimationLoop((now) => {
     if (myAvatar) myAvatar.root.visible = camDist > 0.9; // don't look at the inside of our own head
   }
   atmosphere.update(dt, view.camera);
-  renderer.render(scene, view.camera);
+  post.render(now);
 });
 
 const status = document.getElementById('status');
