@@ -60,7 +60,9 @@ export function createRemotePlayers(scene, fx) {
         const a = buf[Math.max(0, i - 1)], b = buf[i];
         const t = b.t > a.t ? Math.min(1, Math.max(0, (renderT - a.t) / (b.t - a.t))) : 1;
         const pos = avatar.root.position;
+        const px = pos.x, pz = pos.z;
         pos.set(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t);
+        if (dt > 0) { o.vx = (pos.x - px) / dt; o.vz = (pos.z - pz) / dt; }
         avatar.root.rotation.y = lerpAngle(a.ry, b.ry, t);
         const seg = b.t > a.t && renderT <= b.t ? Math.hypot(b.x - a.x, b.z - a.z) / ((b.t - a.t) / 1000) : 0;
         o.speed += (seg - o.speed) * (1 - Math.exp(-dt * 8)); // smoothed so the clip doesn't flicker
@@ -70,6 +72,14 @@ export function createRemotePlayers(scene, fx) {
       }
     },
     pickUp(id) { others.get(id)?.avatar.pickUp(); },
+    // where everyone is and how fast they move, for pushable props
+    pushers(out) {
+      for (const o of others.values()) {
+        const p = o.avatar.root.position;
+        out.push({ x: p.x, z: p.z, vx: o.vx ?? 0, vz: o.vz ?? 0, r: 0.4 });
+      }
+      return out;
+    },
     get count() { return others.size; },
   };
 }

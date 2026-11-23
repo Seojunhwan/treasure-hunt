@@ -10,6 +10,7 @@ import { createTreasures } from './game/treasures.js';
 import { createHint } from './game/hint.js';
 import { unlockAudio, play, startAmbient, isMuted, setMuted } from './game/audio.js';
 import { createFx, createTrail } from './game/fx.js';
+import { createProps } from './game/physics.js';
 import { connect } from './net.js';
 import { showBanner, goFullscreen } from './install.js';
 import { mmss } from './format.js';
@@ -34,6 +35,8 @@ const fx = createFx(scene);
 const others = createRemotePlayers(scene, fx);
 const treasures = createTreasures(scene, fx);
 let stepCount = 0;
+const props = createProps(scene, (strength) => play('bump', { volume: 0.25 + strength * 0.5, rate: 0.85 + Math.random() * 0.3 }));
+let lastX = 0, lastZ = 0;
 const myTrail = createTrail(fx, (speed) => {
   const running = speed > 3.5;
   if (running && stepCount++ % 2) return; // running: every other footprint, or it patters
@@ -99,6 +102,10 @@ renderer.setAnimationLoop((now) => {
     player.rotation.y = Math.atan2(-vx, -vz);
   }
   others.update(dt);
+  const pushers = others.pushers([]);
+  if (me && dt > 0) pushers.push({ x: player.position.x, z: player.position.z, vx: (player.position.x - lastX) / dt, vz: (player.position.z - lastZ) / dt, r: 0.4 });
+  lastX = player.position.x; lastZ = player.position.z;
+  props.update(dt, pushers, player.position);
   treasures.update(now, dt);
   fx.update(dt);
   if (me) myTrail(player.position.x, player.position.y, player.position.z, player.rotation.y, Math.hypot(m.x, m.y) * MOVE_SPEED);
@@ -228,4 +235,4 @@ if (saved) net.join(saved).then((res) => (res.error ? (joinForm.hidden = false) 
 else joinForm.hidden = false;
 showBanner();
 
-if (import.meta.env.DEV) window.__game = { renderer, scene, player, view, others, treasures, setRemaining: (ms) => { remaining = ms; }, setCam: (c) => { camOverride = c; } }; // lets browser automation read state
+if (import.meta.env.DEV) window.__game = { props, renderer, scene, player, view, others, treasures, setRemaining: (ms) => { remaining = ms; }, setCam: (c) => { camOverride = c; } }; // lets browser automation read state

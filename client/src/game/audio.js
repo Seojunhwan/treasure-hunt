@@ -1,6 +1,6 @@
 // One AudioContext for everything. iOS only starts audio inside a tap, so unlockAudio()
 // is called from tap handlers. Sound files are Kenney CC0 (converted to AAC for iPhone).
-const NAMES = ['step0', 'step1', 'step2', 'step3', 'pickup', 'start', 'end', 'hint', 'taken', 'click'];
+const NAMES = ['step0', 'step1', 'step2', 'step3', 'pickup', 'start', 'end', 'hint', 'taken', 'click', 'bump'];
 let ctx = null, master = null, sfxBus = null, musicBus = null;
 const buffers = {};
 let muted = localStorage.getItem('treasure-hunt-muted') === '1';
