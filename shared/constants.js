@@ -1,0 +1,9 @@
+export const MOVE_SPEED = 5; // m/s
+export const PLAYER_RADIUS = 0.4;
+export const NAME_MAX = 12;
+export const TICK_MS = 100; // position send + broadcast rate (10 Hz)
+export const SPEED_TOLERANCE = 1.5; // server accepts moves up to this multiple of MOVE_SPEED
+export const CAMERA_DISTANCE = 6;
+export const CAMERA_MIN_PITCH = 0.15; // radians above horizon
+export const CAMERA_MAX_PITCH = 1.2;
+export const LOOK_SENSITIVITY = 0.005; // radians per drag pixel
