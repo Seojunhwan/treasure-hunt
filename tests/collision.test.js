@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest';
-import { resolveCollision, clampToCircle } from '../shared/collision.js';
+import { resolveCollision, clampToCircle, rayCast } from '../shared/collision.js';
 import { BUILDINGS, SPAWN, MAP_HALF } from '../shared/map.js';
 
 const box = [{ x: 0, z: 0, w: 4, d: 4, h: 3 }]; // spans -2..2
@@ -43,4 +43,18 @@ test('map data: no building overlaps the spawn plaza', () => {
     const p = resolveCollision(SPAWN.x, SPAWN.z, SPAWN.r, [b]);
     expect(p).toEqual({ x: SPAWN.x, z: SPAWN.z });
   }
+});
+
+test('roof boxes (base above head height) do not block walking', () => {
+  const roof = [{ x: 0, z: 0, w: 4, d: 4, h: 0.4, y: 4 }];
+  expect(resolveCollision(0, 0, r, roof)).toEqual({ x: 0, z: 0 });
+});
+
+test('rayCast: hits the near face, misses beside, respects max and box height', () => {
+  const wall = [{ x: 0, z: -5, w: 10, d: 1, h: 3 }]; // face at z = -4.5
+  expect(rayCast([0, 1, 0], [0, 0, -1], 20, wall)).toBeCloseTo(4.5);
+  expect(rayCast([20, 1, 0], [0, 0, -1], 20, wall)).toBe(20);
+  expect(rayCast([0, 1, 0], [0, 0, -1], 3, wall)).toBe(3);
+  expect(rayCast([0, 5, 0], [0, 0, -1], 20, wall)).toBe(20); // passes over the wall
+  expect(rayCast([0, 1, 0], [0, 0, 1], 20, wall)).toBe(20); // pointing away
 });

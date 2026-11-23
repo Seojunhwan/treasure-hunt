@@ -1,10 +1,57 @@
-import { randomUUID } from 'node:crypto';
-import { MOVE_SPEED, NAME_MAX, SPEED_TOLERANCE } from '../shared/constants.js';
-import { SPAWN } from '../shared/map.js';
+import { randomUUID, timingSafeEqual, createHash } from 'node:crypto';
+import { MOVE_SPEED, NAME_MAX, SPEED_TOLERANCE, PICKUP_RADIUS, PICKUP_TOLERANCE, RANKING_SIZE } from '../shared/constants.js';
+import { SPAWN, TREASURES } from '../shared/map.js';
 import { clampToCircle } from '../shared/collision.js';
 
-export function createGame() {
-  return { phase: 'waiting', players: new Map() }; // players keyed by secret token
+// phase: 'waiting' (stuck in spawn plaza) → 'playing' → 'ended'
+export function createGame(durationMs) {
+  return {
+    phase: 'waiting', durationMs, endsAt: 0,
+    players: new Map(), // keyed by secret token
+    treasures: TREASURES.map((t) => ({ ...t, foundBy: null })),
+  };
+}
+
+export function start(state, now) {
+  if (state.phase !== 'waiting') return false;
+  state.phase = 'playing';
+  state.endsAt = now + state.durationMs;
+  for (const p of state.players.values()) p.lastMoveAt = now; // leaving the plaza is not a teleport
+  return true;
+}
+
+// Back to the plaza with zero scores. Returns the players whose position the server changed.
+export function reset(state) {
+  state.phase = 'waiting';
+  state.endsAt = 0;
+  for (const t of state.treasures) t.foundBy = null;
+  for (const p of state.players.values()) {
+    Object.assign(p, spawnPoint(), { score: 0, scoredAt: 0 });
+  }
+  return [...state.players.values()];
+}
+
+export function tick(state, now) {
+  if (state.phase === 'playing' && now >= state.endsAt) {
+    state.phase = 'ended';
+    return true;
+  }
+  return false;
+}
+
+export const remainingMs = (state, now) =>
+  state.phase === 'playing' ? Math.max(0, state.endsAt - now) : state.phase === 'waiting' ? state.durationMs : 0;
+
+// Constant-time compare so the admin token can't be guessed byte by byte.
+export function isAdminToken(given, expected) {
+  if (typeof given !== 'string') return false;
+  const h = (s) => createHash('sha256').update(s).digest();
+  return timingSafeEqual(h(given), h(expected));
+}
+
+function spawnPoint() {
+  const a = Math.random() * Math.PI * 2, r = Math.random() * (SPAWN.r - 1);
+  return { x: SPAWN.x + Math.cos(a) * r, z: SPAWN.z + Math.sin(a) * r };
 }
 
 const TOKEN_RE = /^[0-9a-f-]{36}$/;
@@ -27,10 +74,9 @@ export function join(state, { token, name }, now) {
     if (p.name === clean && !p.online && p.score === 0) return { player: p };
   }
   const t = typeof token === 'string' && TOKEN_RE.test(token) ? token : randomUUID();
-  const a = Math.random() * Math.PI * 2, r = Math.random() * (SPAWN.r - 1);
   const player = {
     token: t, id: randomUUID().slice(0, 8), name: uniqueName(state, clean, t),
-    x: SPAWN.x + Math.cos(a) * r, z: SPAWN.z + Math.sin(a) * r, ry: 0,
+    ...spawnPoint(), ry: 0,
     score: 0, scoredAt: 0, lastMoveAt: now, online: true,
   };
   state.players.set(t, player);
@@ -39,6 +85,7 @@ export function join(state, { token, name }, now) {
 
 // Returns true if accepted. A rejected move means the client should snap back to the server position.
 export function move(state, player, msg, now) {
+  if (state.phase === 'ended') return false; // frozen after the whistle
   const { x, z, ry } = msg ?? {};
   if (![x, z, ry].every(Number.isFinite)) return false;
   const dt = Math.min((now - player.lastMoveAt) / 1000, 1);
@@ -49,8 +96,37 @@ export function move(state, player, msg, now) {
   return true;
 }
 
-export function snapshot(state) {
+// First request to arrive wins: Node handles one message at a time, so there is no race here.
+// Returns 'ok' | 'taken' | 'far' | 'invalid'.
+export function tryPickup(state, player, treasureId, now) {
+  const t = state.treasures[treasureId];
+  if (state.phase !== 'playing' || !t || !Number.isInteger(treasureId)) return 'invalid';
+  if (t.foundBy) return 'taken';
+  if (Math.hypot(player.x - t.x, player.z - t.z) > PICKUP_RADIUS + PICKUP_TOLERANCE) return 'far';
+  t.foundBy = player.id;
+  player.score += 1;
+  player.scoredAt = now; // earlier wins a tie
+  if (state.treasures.every((x) => x.foundBy)) state.phase = 'ended';
+  return 'ok';
+}
+
+// Score high → low; on a tie whoever reached that score first ranks higher.
+export function ranking(state) {
+  return [...state.players.values()]
+    .filter((p) => p.score > 0)
+    .sort((a, b) => b.score - a.score || a.scoredAt - b.scoredAt)
+    .map((p, i) => ({ rank: i + 1, id: p.id, name: p.name, score: p.score }));
+}
+
+export function snapshot(state, now) {
   const players = [];
   for (const p of state.players.values()) if (p.online) players.push({ id: p.id, name: p.name, x: p.x, z: p.z, ry: p.ry });
-  return { phase: state.phase, players };
+  return {
+    phase: state.phase,
+    remainingMs: remainingMs(state, now),
+    players,
+    found: state.treasures.filter((t) => t.foundBy).map((t) => t.id),
+    // full list once it's over so every phone can find its own rank
+    ranking: state.phase === 'ended' ? ranking(state) : ranking(state).slice(0, RANKING_SIZE),
+  };
 }

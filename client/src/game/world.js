@@ -22,7 +22,7 @@ export function buildWorld(scene) {
   const mat = new THREE.MeshLambertMaterial({ color: 0xa88b6a });
   for (const b of BUILDINGS) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), mat);
-    m.position.set(b.x, b.h / 2, b.z);
+    m.position.set(b.x, (b.y ?? 0) + b.h / 2, b.z);
     scene.add(m);
   }
 }

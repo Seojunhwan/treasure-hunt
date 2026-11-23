@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>보물찾기 · 관리자</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0b1220; color: #fff; font-family: system-ui, sans-serif; }
+    main { display: grid; grid-template-columns: 1fr 1fr; gap: 4vw; height: 100%; padding: 4vh 4vw; box-sizing: border-box; }
+    h1 { margin: 0 0 2vh; font-size: 4vw; }
+    #timer { font-size: 13vw; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+    #phase { font-size: 2.4vw; margin: 1vh 0 3vh; color: #ffd76a; }
+    #count { font-size: 2vw; color: #9fb3c8; }
+    #url { font-size: 2.2vw; margin-top: 2vh; word-break: break-all; }
+    .controls { display: flex; gap: 1vw; margin-top: 4vh; }
+    button { font-size: 1.6vw; padding: 1.2vh 2vw; border-radius: 10px; border: 0; font-weight: 700; cursor: pointer; }
+    #start { background: #3fbf6f; color: #fff; }
+    #start:disabled { background: #3a4a5a; color: #8899aa; cursor: default; }
+    #reset { background: transparent; color: #ff9a9a; border: 2px solid #ff9a9a; }
+    #board h2 { margin: 0 0 2vh; font-size: 2.6vw; }
+    #left { font-size: 2vw; color: #ffd76a; margin-bottom: 2vh; }
+    #rank { list-style: none; margin: 0; padding: 0; }
+    #rank li { display: flex; gap: 1.5vw; align-items: baseline; font-size: 2.4vw; padding: .8vh 0; border-bottom: 1px solid #1e2a3a; }
+    #rank .r { width: 3.5vw; text-align: right; color: #9fb3c8; }
+    #rank .n { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #rank .s { font-weight: 800; font-variant-numeric: tabular-nums; }
+    #error { color: #ffb4b4; font-size: 2vw; }
+    #final { position: fixed; inset: 0; padding: 4vh 4vw; box-sizing: border-box; background: #0b1220; overflow: auto; }
+    #final h1 { text-align: center; font-size: 4.5vw; margin-bottom: 3vh; }
+    #podium { display: flex; justify-content: center; align-items: flex-end; gap: 2vw; margin-bottom: 4vh; }
+    .place { width: 24vw; text-align: center; border-radius: 16px; padding: 2vh 1vw; background: #16233a; }
+    .place .m { font-size: 6vw; line-height: 1.1; }
+    .place .n { font-size: 3vw; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .place .s { font-size: 2.2vw; color: #ffd76a; }
+    .place.p1 { padding-top: 5vh; background: #2a3550; box-shadow: 0 0 0 3px #ffd76a; }
+    #rest { list-style: none; padding: 0; margin: 0 auto; max-width: 80vw; columns: 3; column-gap: 3vw; }
+    #rest li { display: flex; gap: 1vw; font-size: 1.8vw; padding: .6vh 0; break-inside: avoid; }
+    #rest .r { width: 3vw; text-align: right; color: #9fb3c8; }
+    #rest .n { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #reset2 { background: transparent; color: #ff9a9a; border: 2px solid #ff9a9a; }
+    #final .controls { justify-content: center; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <p id="error" role="alert" hidden></p>
+  <main id="app" hidden>
+    <section>
+      <h1>❄️ 송년 보물찾기</h1>
+      <div id="timer" aria-live="off">--:--</div>
+      <div id="phase" role="status"></div>
+      <div id="count"></div>
+      <div id="url"></div>
+      <div class="controls">
+        <button id="start" type="button">시작</button>
+        <button id="reset" type="button">리셋</button>
+      </div>
+    </section>
+    <section id="board">
+      <h2>🏆 순위</h2>
+      <div id="left"></div>
+      <ol id="rank"></ol>
+      <p id="empty" style="color:#9fb3c8">보물이 발견되면 여기에 표시돼요</p>
+    </section>
+  </main>
+  <section id="final" hidden>
+    <h1>🎉 최종 순위</h1>
+    <div id="podium"></div>
+    <ol id="rest"></ol>
+    <div class="controls"><button id="reset2" type="button">리셋</button></div>
+  </section>
+  <script type="module" src="/src/admin.js"></script>
+</body>
+</html>

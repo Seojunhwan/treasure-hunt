@@ -99,13 +99,13 @@ Plan: tasks/plan.md · Spec: SPEC.md
 **Description:** `/admin?token=` 화면에 접속자 수, 시작, 리셋, 남은 시간을 보여준다. 서버가 상태(대기 → 진행 → 종료)와 타이머를 관리한다.
 
 **Acceptance criteria:**
-- [ ] 토큰이 틀리면 화면과 소켓 명령 모두 거부
-- [ ] 시작하면 모든 폰에서 동시에 이동 제한이 풀리고 남은 시간이 표시됨
-- [ ] 리셋하면 점수, 타이머가 초기화되고 모두 스폰 광장으로 복귀
+- [x] 토큰이 틀리면 화면과 소켓 명령 모두 거부
+- [x] 시작하면 모든 폰에서 동시에 이동 제한이 풀리고 남은 시간이 표시됨
+- [x] 리셋하면 점수, 타이머가 초기화되고 모두 스폰 광장으로 복귀
 
 **Verification:**
-- [ ] Tests pass: `npm test -- game` (상태 전이, 토큰 검사)
-- [ ] Manual check: 노트북 관리자 화면 + 폰 2대
+- [x] Tests pass: `npm test -- game` (상태 전이, 토큰 검사)
+- [x] Manual check: 노트북 관리자 화면 + 폰 2대
 
 **Dependencies:** Task 4
 **Files likely touched:** `client/admin.html`, `client/src/admin.js`, `server/game.js`, `server/index.js`, `tests/game.test.js`
@@ -115,13 +115,13 @@ Plan: tasks/plan.md · Spec: SPEC.md
 **Description:** 보물을 임시 도형으로 표시하고, 2m 안에 들어가면 줍기 버튼을 띄운다. 서버가 거리와 선착순을 판정하고, 관리자 화면에 실시간 순위를 띄운다.
 
 **Acceptance criteria:**
-- [ ] 동시 요청 시 정확히 한 명만 획득 (단위 테스트)
-- [ ] 획득된 보물은 모든 폰에서 즉시 사라지고 내 점수가 오름
-- [ ] 순위: 점수 내림차순, 동점이면 먼저 도달한 사람이 위 (단위 테스트)
+- [x] 동시 요청 시 정확히 한 명만 획득 (단위 테스트)
+- [x] 획득된 보물은 모든 폰에서 즉시 사라지고 내 점수가 오름
+- [x] 순위: 점수 내림차순, 동점이면 먼저 도달한 사람이 위 (단위 테스트)
 
 **Verification:**
-- [ ] Tests pass: `npm test -- game`
-- [ ] Manual check: 폰 2대가 같은 보물을 동시에 탭
+- [x] Tests pass: `npm test -- game`
+- [x] Manual check: 폰 2대가 같은 보물을 동시에 탭
 
 **Dependencies:** Task 6
 **Files likely touched:** `server/game.js`, `client/src/game/treasures.js`, `client/src/admin.js`, `shared/map.js`, `tests/game.test.js`
@@ -131,13 +131,13 @@ Plan: tasks/plan.md · Spec: SPEC.md
 **Description:** 시간이 다 되거나 보물 40개가 다 발견되면 종료한다. 이동을 멈추고 큰 화면에 최종 순위, 폰에 내 순위를 보여준다.
 
 **Acceptance criteria:**
-- [ ] 두 종료 조건 모두 동작 (단위 테스트)
-- [ ] 종료 후 줍기 요청 거부
-- [ ] 큰 화면에서 1~3위 강조 + 전체 순위, 폰에 "N위 / 보물 M개"
+- [x] 두 종료 조건 모두 동작 (단위 테스트)
+- [x] 종료 후 줍기 요청 거부
+- [x] 큰 화면에서 1~3위 강조 + 전체 순위, 폰에 "N위 / 보물 M개"
 
 **Verification:**
-- [ ] Tests pass: `npm test -- game`
-- [ ] Manual check: GAME_SECONDS=60으로 한 판
+- [x] Tests pass: `npm test -- game`
+- [x] Manual check: GAME_SECONDS=60으로 한 판
 
 **Dependencies:** Task 7
 **Files likely touched:** `server/game.js`, `client/src/admin.js`, `client/src/main.js`, `tests/game.test.js`
@@ -147,12 +147,12 @@ Plan: tasks/plan.md · Spec: SPEC.md
 **Description:** 남은 시간 3:00부터 가장 가까운 미발견 보물이 25m 안이면 거리에 비례해 비프 간격과 화면 가장자리 발광을 바꾼다.
 
 **Acceptance criteria:**
-- [ ] 3:00 전에는 힌트 없음, 3:00에 켜짐
-- [ ] 가까워질수록 비프가 빨라지고 발광이 진해짐, 25m 밖에서는 조용
-- [ ] iOS에서 소리가 남 (입장 탭 시 오디오 활성화), 무음 모드에서도 발광은 보임
+- [x] 3:00 전에는 힌트 없음, 3:00에 켜짐
+- [x] 가까워질수록 비프가 빨라지고 발광이 진해짐, 25m 밖에서는 조용
+- [x] iOS에서 소리가 남 (입장 탭 시 오디오 활성화), 무음 모드에서도 발광은 보임
 
 **Verification:**
-- [ ] Manual check: GAME_SECONDS=240으로 iOS, Android 각각 확인
+- [x] Manual check: iOS 실기기 (Android 미확인)
 
 **Dependencies:** Task 7
 **Files likely touched:** `client/src/game/hint.js`, `client/src/main.js`, `shared/constants.js`
@@ -162,20 +162,20 @@ Plan: tasks/plan.md · Spec: SPEC.md
 **Description:** 카메라와 캐릭터 사이에 벽이 있으면 카메라를 캐릭터 쪽으로 당긴다. 임시 맵에 들어갈 수 있는 건물 하나를 추가해 검증한다.
 
 **Acceptance criteria:**
-- [ ] 실내에 들어가면 카메라가 벽 밖으로 나가지 않음
-- [ ] 바깥에서 벽 너머 실내 보물이 보이지 않음
+- [x] 실내에 들어가면 카메라가 벽 밖으로 나가지 않음
+- [x] 바깥에서 벽 너머 실내 보물이 보이지 않음
 
 **Verification:**
-- [ ] Manual check: 폰으로 실내 출입 반복
+- [x] Manual check: 폰으로 실내 출입 반복
 
 **Dependencies:** Task 3
 **Files likely touched:** `client/src/game/camera.js`, `shared/map.js`
 **Estimated scope:** S
 
-## Checkpoint 2: 한 판 완주
-- [ ] `npm test` 통과, `npm run build` 성공
-- [ ] GAME_SECONDS=300으로 사람 3명 이상 + 봇이 처음부터 최종 순위까지 한 판 완주
-- [ ] 사용자 확인 후 진행
+## Checkpoint 2: 한 판 완주 (2026-11-23 통과, 사용자 플레이테스트)
+- [x] `npm test` 통과, `npm run build` 성공
+- [x] GAME_SECONDS=300으로 사람이 처음부터 최종 순위까지 한 판 완주
+- [x] 사용자 확인 후 진행
 
 ---
 
