@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { load, townHouse } from './kit.js';
-import { S, MAP_HALF, SPAWN, HOUSES, TOWERS, PROPS, ROOMS, LAMPS, FURNITURE_SCALE, SCAFFOLDS, houseSize, rot } from '../../../shared/map.js';
+import { S, MAP_HALF, SPAWN, HOUSES, TOWERS, PROPS, ROOMS, LAMPS, FURNITURE_SCALE, SCAFFOLDS, LOFT_FLOORS, HOUSE_STAIRS, houseSize, rot } from '../../../shared/map.js';
 
 const Q = Math.PI / 2;
 
@@ -30,6 +30,41 @@ export async function buildWorld(scene) {
   const put = (o, x, y, z, q = 0, s = 1) => { o.position.set(x, y, z); o.rotation.y = q * Q; o.scale.multiplyScalar(s); statics.add(o); return o; };
   const jobs = [];
 
+  // c: centre the model on its spot (kit origins sit on a corner)
+  const furnish = (h, f, y) => {
+    const [dx, dz] = rot(h.rot, f.lx, f.lz);
+    jobs.push(load(f.pack ?? 'furniture-kit', f.name).then((o) => {
+      if (!f.c) return put(o, h.x + dx, y + 0.03, h.z + dz, h.rot + f.rot, f.s ?? FURNITURE_SCALE);
+      const c = new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3());
+      o.position.set(-c.x, 0, -c.z);
+      const g = new THREE.Group(); g.add(o);
+      put(g, h.x + dx, y + 0.03, h.z + dz, h.rot + f.rot, f.s ?? FURNITURE_SCALE);
+    }));
+  };
+  const wood = new THREE.MeshLambertMaterial({ color: 0x7a5236 }), steps = new THREE.MeshLambertMaterial({ color: 0x8f6243 });
+  for (const f of LOFT_FLOORS) put(new THREE.Mesh(new THREE.BoxGeometry(f.w, 0.15, f.d), wood), f.x, f.y - 0.075, f.z);
+  for (const r of HOUSE_STAIRS) {
+    const n = 10, along = r.axis === 'x' ? r.w : r.d, up = r.y1 > r.y0;
+    for (let i = 0; i < n; i++) {
+      const hgt = Math.max(r.y0, r.y1) * ((up ? i + 1 : n - i) / n), c = -along / 2 + (along / n) * (i + 0.5);
+      const geo = r.axis === 'x' ? new THREE.BoxGeometry(along / n, hgt, r.d) : new THREE.BoxGeometry(r.w, hgt, along / n);
+      put(new THREE.Mesh(geo, steps), r.x + (r.axis === 'x' ? c : 0), hgt / 2, r.z + (r.axis === 'z' ? c : 0));
+    }
+  }
+  // Christmas on every house: a wreath over the door, candy canes either side, snow drifts at two corners
+  const deco = (h, pack, name, lx, y, lz, s, q = 0) => {
+    const [dx, dz] = rot(h.rot, lx, lz);
+    jobs.push(load(pack, name).then((o) => put(o, h.x + dx, y, h.z + dz, h.rot + q, s)));
+  };
+  for (const h of HOUSES) {
+    const { w, d } = houseSize(h);
+    deco(h, 'holiday-kit', 'wreath-decorated', S / 2, 1.95, d / 2 + 0.16, 1.2);
+    deco(h, 'holiday-kit', 'candy-cane-red', S / 2 - 0.95, 0, d / 2 + 0.3, 2.2);
+    deco(h, 'holiday-kit', 'candy-cane-green', S / 2 + 0.95, 0, d / 2 + 0.3, 2.2, 2);
+    deco(h, 'holiday-kit', 'snow-pile', -w / 2 - 0.15, 0, d / 2 + 0.1, 2);
+    deco(h, 'holiday-kit', 'snow-pile', w / 2 + 0.15, 0, -d / 2 - 0.1, 2.4, 1);
+  }
+
   for (const h of HOUSES) {
     const wood = h.wood ? { wall: 'wall-wood', windowPiece: 'wall-wood-window-shutters', door: 'wall-wood-door' } : {};
     const opts = { depth: h.d, floors: h.floors, glow: !h.open, ...wood };
@@ -41,10 +76,8 @@ export async function buildWorld(scene) {
     floor.rotation.x = -Math.PI / 2;
     put(floor, h.x, 0.02, h.z, 0);
     floor.rotation.z = h.rot * Q;
-    for (const f of ROOMS[h.room]) {
-      const [dx, dz] = rot(h.rot, f.lx, f.lz);
-      jobs.push(load('furniture-kit', f.name).then((o) => put(o, h.x + dx, 0.03, h.z + dz, h.rot + f.rot, FURNITURE_SCALE)));
-    }
+    for (const f of ROOMS[h.room]) furnish(h, f, 0);
+    for (const f of ROOMS[h.loft] ?? []) furnish(h, f, S);
   }
 
   for (const t of TOWERS) jobs.push(tower(t).then((g) => put(g, t.x, 0, t.z, t.rot)));

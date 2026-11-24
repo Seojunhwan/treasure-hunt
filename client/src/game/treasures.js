@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import { load } from './kit.js';
 import { softDot } from './fx.js';
+import { TREASURE_SPOTS } from '../../../shared/map.js';
 
 const LOOKS = ['present-a-cube', 'present-b-cube', 'present-a-round', 'present-b-round', 'present-a-rectangle', 'present-b-rectangle'];
-const MAX = 64;
+const MAX = TREASURE_SPOTS.length; // one gift per question at most
 
-// Gift boxes from the Holiday Kit: they float, turn and glow so a sharp eye can spot them.
+// Gift boxes from the Holiday Kit: they sit where they're hidden, turn slowly and glow so a sharp eye can spot them.
 // The server decides where they are each game (one per quiz question), so the set is rebuilt on start.
 export function createTreasures(scene, fx) {
   let items = [];
@@ -73,7 +74,6 @@ export function createTreasures(scene, fx) {
           continue;
         }
         it.g.rotation.y = now * 0.0008 + it.t.id;
-        it.g.position.y = it.t.y + 0.15 + Math.sin(now * 0.002 + it.t.id) * 0.12;
       }
     },
   };

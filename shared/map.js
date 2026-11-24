@@ -8,11 +8,12 @@ const DOOR = 1.4; // door gap width
 
 // rot = quarter turns; the door (local +z) then faces 0: +z, 1: +x, 2: -z, 3: -x.
 // open: has a doorway and an interior (room = furniture template).
+// loft: a two-floor open house whose upper floor is reached by stairs inside (loft = upstairs furniture template).
 export const HOUSES = [
   // west side of the main avenue, doors face east
   { x: -9, z: -40, rot: 1, d: 3, floors: 2, wood: true },
   { x: -9, z: -30, rot: 1, d: 2, floors: 1, open: true, room: 'bedroom' },
-  { x: -9, z: -21, rot: 1, d: 3, floors: 2 },
+  { x: -9, z: -21, rot: 1, d: 3, floors: 2, open: true, room: 'living', loft: 'loft' },
   { x: -9, z: -12, rot: 1, d: 2, floors: 1, wood: true },
   { x: -9, z: 12, rot: 1, d: 2, floors: 1 },
   { x: -9, z: 21, rot: 1, d: 3, floors: 1, open: true, room: 'kitchen' },
@@ -20,7 +21,7 @@ export const HOUSES = [
   { x: -9, z: 40, rot: 1, d: 3, floors: 1 },
   // east side, doors face west
   { x: 9, z: -40, rot: 3, d: 2, floors: 1 },
-  { x: 9, z: -31, rot: 3, d: 3, floors: 2, wood: true },
+  { x: 9, z: -31, rot: 3, d: 3, floors: 2, wood: true, open: true, room: 'living', loft: 'loft' },
   { x: 9, z: -21, rot: 3, d: 2, floors: 1, open: true, room: 'storage' },
   { x: 9, z: -12, rot: 3, d: 2, floors: 2 },
   { x: 9, z: 12, rot: 3, d: 3, floors: 1, open: true, room: 'bedroom' },
@@ -29,7 +30,7 @@ export const HOUSES = [
   { x: 9, z: 40, rot: 3, d: 3, floors: 2 },
   // north side of the cross street, doors face south
   { x: -40, z: -9, rot: 0, d: 2, floors: 1, wood: true },
-  { x: -31, z: -9, rot: 0, d: 3, floors: 2 },
+  { x: -31, z: -9, rot: 0, d: 3, floors: 2, open: true, room: 'living', loft: 'loft' },
   { x: -21, z: -9, rot: 0, d: 2, floors: 1, open: true, room: 'kitchen' },
   { x: 21, z: -9, rot: 0, d: 2, floors: 2, wood: true },
   { x: 31, z: -9, rot: 0, d: 3, floors: 1 },
@@ -37,7 +38,7 @@ export const HOUSES = [
   // south side, doors face north
   { x: -40, z: 9, rot: 2, d: 2, floors: 2 },
   { x: -31, z: 9, rot: 2, d: 2, floors: 1, wood: true },
-  { x: -21, z: 9, rot: 2, d: 3, floors: 2 },
+  { x: -21, z: 9, rot: 2, d: 3, floors: 2, open: true, room: 'living', loft: 'loft' },
   { x: 21, z: 9, rot: 2, d: 3, floors: 1 },
   { x: 31, z: 9, rot: 2, d: 2, floors: 2, wood: true },
   { x: 40, z: 9, rot: 2, d: 2, floors: 1 },
@@ -147,6 +148,23 @@ export const ROOMS = {
     { name: 'coatRack', lx: -1.85, lz: 1.2, rot: 1 },
   ],
 };
+// Two-floor houses with stairs inside (c: model centred on lx/lz; pack/s override the furniture kit and scale).
+// The stairs run up the left wall (local x -2.2..-1.0), so the ground floor keeps its furniture to the right.
+ROOMS.living = [
+  { name: 'loungeSofa', lx: 0.9, lz: -2.95, rot: 0, c: true, box: [2.16, 0.9, 1.0] },
+  { name: 'tableCoffee', lx: 0.9, lz: -1.6, rot: 0, c: true, box: [1.45, 0.88, 0.5] },
+  { name: 'bookcaseOpen', lx: 1.9, lz: 0.2, rot: 3, c: true, box: [0.88, 0.55, 1.94] },
+  { name: 'lampRoundFloor', lx: -0.5, lz: -3.1, rot: 0, c: true },
+  { pack: 'holiday-kit', name: 'present-b-round', s: 1.6, lx: 0.2, lz: 0.9, rot: 0, c: true, box: [0.88, 0.88, 0.75] },
+];
+ROOMS.loft = [
+  { name: 'bedSingle', s: 1.2, lx: 1.4, lz: -2.2, rot: 0, c: true, box: [1.16, 2.09, 0.45] },
+  { name: 'bookcaseOpen', lx: 1.9, lz: 0.0, rot: 3, c: true, box: [0.88, 0.55, 1.94] },
+  { name: 'cardboardBoxClosed', lx: 1.8, lz: 1.6, rot: 0, c: true, box: [0.46, 0.46, 0.62] },
+  { name: 'cardboardBoxClosed', lx: 1.75, lz: 2.2, rot: 1, c: true, box: [0.46, 0.46, 0.62] },
+  { name: 'rugRound', lx: 0.6, lz: 0.6, rot: 0, c: true },
+  { pack: 'holiday-kit', name: 'present-a-cube', s: 1.4, lx: 0.1, lz: -3.0, rot: 0, c: true, box: [0.63, 0.63, 0.8] },
+];
 export const FURNITURE_SCALE = F;
 
 // --- geometry helpers --------------------------------------------------------
@@ -173,6 +191,8 @@ export const PLATFORMS = []; // { x, z, w, d, y } flat walkable tops
 export const RAMPS = []; // { x, z, w, d, axis: 'x' | 'z', y0, y1 } height goes y0 → y1 from min to max edge
 
 export const INTERIORS = []; // { x, z, w, d } inside of each open house, for the first-person camera
+export const LOFT_FLOORS = []; // { x, z, w, d, y } upstairs floor pieces, to draw
+export const HOUSE_STAIRS = []; // same shape as RAMPS, to draw
 for (const h of HOUSES) {
   const { w, d, H } = houseSize(h);
   if (h.open) INTERIORS.push(box(h, h.rot, 0, 0, w - 2 * T, d - 2 * T, H));
@@ -185,11 +205,30 @@ for (const h of HOUSES) {
       box(h, q, w / 2 - T / 2, 0, T, d, H), // right
       seg(-w / 2, S / 2 - DOOR / 2), seg(S / 2 + DOOR / 2, w / 2), // front, door gap on the right tile
     );
-    for (const f of ROOMS[h.room]) {
+    for (const [list, y] of [[ROOMS[h.room], 0], [ROOMS[h.loft] ?? [], S]]) for (const f of list) {
       if (!f.box) continue;
-      const b = box(h, q, f.lx, f.lz, ...rotSize(f.rot, f.box));
+      const b = box(h, q, f.lx, f.lz, ...rotSize(f.rot, f.box), y);
       COLLIDERS.push(b);
-      PLATFORMS.push({ x: b.x, z: b.z, w: b.w, d: b.d, y: b.h }); // hop onto the bed or a box
+      PLATFORMS.push({ x: b.x, z: b.z, w: b.w, d: b.d, y: y + b.h }); // hop onto the bed or a box
+    }
+    if (h.loft) {
+      // stairs up the left wall, climbing toward the back (local -z); the hole they leave in the upper floor
+      const SX0 = -w / 2 + T, SX1 = -1.0, SZ0 = -1.6, SZ1 = 2.4, IZ = d / 2 - T, IX = w / 2 - T;
+      const r = box(h, q, (SX0 + SX1) / 2, (SZ0 + SZ1) / 2, SX1 - SX0, SZ1 - SZ0, 0);
+      const highAtMin = q === 0 || q === 1; // after rotation, is the top on the ramp's min-coordinate side?
+      const ramp = { x: r.x, z: r.z, w: r.w, d: r.d, axis: q % 2 ? 'x' : 'z', y0: highAtMin ? S : 0, y1: highAtMin ? 0 : S };
+      RAMPS.push(ramp); HOUSE_STAIRS.push(ramp);
+      for (const [x0, x1, z0, z1] of [[SX1, IX, -IZ, IZ], [SX0, SX1 + 0.05, -IZ, SZ0], [SX0, SX1 + 0.05, SZ1, IZ]]) { // pieces overlap: no seam
+        const p = box(h, q, (x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, 0.15, S - 0.15);
+        COLLIDERS.push(p); // the upstairs floor, seen from below: stops the camera and jumps
+        PLATFORMS.push({ x: p.x, z: p.z, w: p.w, d: p.d, y: S });
+        LOFT_FLOORS.push({ x: p.x, z: p.z, w: p.w, d: p.d, y: S });
+      }
+      COLLIDERS.push(
+        box(h, q, SX1, (SZ0 + SZ1) / 2, 0.15, SZ1 - SZ0, S + 1, 0), // wall along the stairs, a rail upstairs
+        box(h, q, (SX0 + SX1) / 2, SZ0 - 0.1, SX1 - SX0, 0.2, S - 0.7, 0), // under the top step: no walking beneath
+        box(h, q, (SX0 + SX1) / 2, SZ1 + 0.05, SX1 - SX0, 0.1, 1, S), // rail at the foot of the hole, upstairs
+      );
     }
   } else {
     COLLIDERS.push(box(h, q, 0, 0, w, d, H));
@@ -234,7 +273,7 @@ for (const l of LAMPS) COLLIDERS.push(box(l, 0, 0, 0, 0.35, 0.35, 3));
 // Hiding spots, written relative to the structures so they follow if a house moves.
 // Each game places one gift per quiz question on a random subset of these, so the number of
 // spots is the most questions a game can use.
-const inHouse = (i, lx, lz) => { const h = HOUSES[i]; const [dx, dz] = rot(h.rot, lx, lz); return { x: h.x + dx, z: h.z + dz, y: 0 }; };
+const inHouse = (i, lx, lz, y = 0) => { const h = HOUSES[i]; const [dx, dz] = rot(h.rot, lx, lz); return { x: h.x + dx, z: h.z + dz, y }; };
 const behindHouse = (i, lx = 0) => { const h = HOUSES[i]; return inHouse(i, lx, -houseSize(h).d / 2 - 1.2); };
 const onTower = (i, lx = 1, lz = -1) => { const t = TOWERS[i]; const [dx, dz] = rot(t.rot, lx, lz); return { x: t.x + dx, z: t.z + dz, y: S }; };
 const underTower = (i) => { const t = TOWERS[i]; const [dx, dz] = rot(t.rot, 0.8, -0.8); return { x: t.x + dx, z: t.z + dz, y: 0 }; };
@@ -248,6 +287,8 @@ const SPOTS = [
   inHouse(12, -1.9, 1.8), inHouse(12, 1.75, -2.6),
   inHouse(18, -1.9, -1.5), inHouse(18, 1.8, 1.5),
   inHouse(21, -1.8, -0.4), inHouse(21, 1.75, 0.3),
+  // two-floor houses: one downstairs, two upstairs (2026-11-25)
+  ...[2, 9, 17, 24].flatMap((i) => [inHouse(i, -0.4, 1.4), inHouse(i, 1.4, -0.7, S), inHouse(i, -1.7, -3.0, S)]),
   // tower decks and under the decks
   onTower(0), onTower(1), onTower(2),
   underTower(0), underTower(1), underTower(2),

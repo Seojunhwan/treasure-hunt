@@ -31,7 +31,7 @@ export function createPost(renderer, scene, camera) {
   let enabled = forced !== null ? forced === '1' : true;
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.45, 0.6);
+  const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.72, 0.55, 0.6);
   composer.addPass(bloom);
   composer.addPass(new ShaderPass(Grade));
   composer.addPass(new OutputPass());

@@ -64,8 +64,8 @@ const canPick = (cells, t) => cells.some((c) =>
   Math.abs(c.y - t.y) <= PICKUP_HEIGHT &&
   lineOfSight([c.x, c.y + 1.2, c.z], [t.x, t.y + 0.4, t.z]));
 
-test('76 distinct hiding spots, comfortably more than the minimum question count', () => {
-  expect(TREASURES.length).toBe(76);
+test('88 distinct hiding spots, comfortably more than the minimum question count', () => {
+  expect(TREASURES.length).toBe(88);
   expect(TREASURES.length).toBeGreaterThan(MIN_QUESTIONS);
   const keys = new Set(TREASURES.map((t) => `${Math.round(t.x)},${Math.round(t.z)},${t.y}`));
   expect(keys.size).toBe(TREASURES.length);
