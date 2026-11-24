@@ -1,12 +1,13 @@
 // Phones: left half of the screen is a floating joystick, right half drags the camera.
-// Desktop: WASD/arrows move, dragging anywhere turns the camera.
+// Desktop: WASD/arrows move; a click locks the pointer and plain mouse movement turns the camera (Esc frees it).
 const RADIUS = 50; // px the knob can travel
 
 // iPadOS Safari claims to be a Mac, so a touch-capable "Mac" is still a tablet
 export const isDesktop = !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) &&
   !(navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
 
-export function createControls(el) {
+// canLock: whether a click on the canvas may grab the mouse now (not in the lobby or with a card open)
+export function createControls(el, canLock = () => true) {
   const move = { x: 0, y: 0 };
   const look = { dx: 0, dy: 0 };
   const keys = new Set();
@@ -19,8 +20,20 @@ export function createControls(el) {
   base.hidden = true;
   document.body.appendChild(base);
 
+  if (isDesktop) {
+    // Chrome rejects a re-lock for ~1 s after Esc; the next click tries again
+    el.addEventListener('click', () => { if (!document.pointerLockElement && canLock()) el.requestPointerLock()?.catch?.(() => {}); });
+    document.addEventListener('mousemove', (e) => {
+      if (document.pointerLockElement !== el) return;
+      look.dx += e.movementX;
+      look.dy += e.movementY;
+    });
+    document.addEventListener('pointerlockchange', () => document.body.classList.toggle('locked', document.pointerLockElement === el));
+  }
+
   el.addEventListener('pointerdown', (e) => {
-    if (!isDesktop && e.clientX < innerWidth / 2 && stickId === null) {
+    if (isDesktop) return; // desktop looks with the locked mouse, not by dragging
+    if (e.clientX < innerWidth / 2 && stickId === null) {
       stickId = e.pointerId;
       origin = { x: e.clientX, y: e.clientY };
       base.style.left = origin.x + 'px';

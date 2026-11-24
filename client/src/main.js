@@ -47,7 +47,9 @@ const indoors = (x, z) => INTERIORS.some((b) => Math.abs(x - b.x) < b.w / 2 && M
 
 const view = createFollowCamera();
 const post = createPost(renderer, scene, view.camera);
-const controls = createControls(renderer.domElement);
+// mouse-look only while actually playing; cards and the quiz need the cursor (guideEl/quiz are set up below)
+const controls = createControls(renderer.domElement, () => !!me && !quiz && guideEl.hidden);
+const freeMouse = () => { if (document.pointerLockElement) document.exitPointerLock(); };
 if (isDesktop) document.body.classList.add('desktop'); // shows key hints (F, 1-5), hides phone-only copy
 let me = null; // { id, name } once joined
 let phase = 'waiting';
@@ -226,6 +228,7 @@ function openQuiz(id, question, choices, remainingMs) {
   quizChoices.className = 'choices n' + choices.length + (choices.length === 2 ? ' ox' : '');
   quizEl.hidden = false;
   pickBtn.hidden = true;
+  freeMouse(); // answers can be clicked as well as keyed
 }
 
 function closeQuiz(reason) {
@@ -300,9 +303,13 @@ const guideBtn = document.getElementById('guide-btn');
 let guideShown = false;
 function guide(open) {
   guideEl.hidden = !open;
+  if (open) freeMouse();
   if (!open) document.activeElement?.blur(); // so Enter doesn't re-press the ? button that opened it
 }
-guideEl.querySelector('.close').addEventListener('click', () => guide(false));
+guideEl.querySelector('.close').addEventListener('click', () => {
+  guide(false);
+  if (isDesktop && me) renderer.domElement.requestPointerLock()?.catch?.(() => {}); // the click that closes the card starts mouse-look
+});
 guideBtn.addEventListener('click', () => guide(true));
 
 const resultEl = document.getElementById('result');
@@ -315,6 +322,7 @@ function showResult(ranking) {
     resultEl.querySelector('.rank').textContent = rank ? rank + '위' : '';
     resultEl.querySelector('.mine').textContent = line;
     resultEl.hidden = false;
+    freeMouse();
   }
 }
 
@@ -346,7 +354,8 @@ const joinError = document.getElementById('join-error');
 nameInput.addEventListener('blur', () => scrollTo(0, 0)); // iOS keyboard can leave the page shifted
 joinForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  goFullscreen(); // needs the tap, so before any await
+  // desktop stays windowed: Esc (which frees the mouse-look cursor) would also drop the browser out of fullscreen
+  if (!isDesktop) goFullscreen(); // needs the tap, so before any await
   unlockAudio();
   startAmbient();
   nameInput.blur();

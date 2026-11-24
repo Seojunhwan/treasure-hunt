@@ -75,6 +75,8 @@
     #jump svg { width: 30px; height: 30px; }
     #jump:active { transform: scale(.92); }
     body.desktop #jump { display: none; }
+    #lockhint { display: none; position: fixed; z-index: 2; left: 50%; bottom: 80px; transform: translateX(-50%); padding: 6px 16px; border-radius: 16px; background: rgba(0,0,0,.5); color: var(--paper); font: 15px var(--display); white-space: nowrap; pointer-events: none; }
+    body.desktop:not(.lobby):not(.locked) #lockhint { display: block; } /* mouse-look is off until the player clicks the scene */
     body:not(.desktop) #pickup { right: max(126px, calc(env(safe-area-inset-right) + 114px)); bottom: max(40px, calc(env(safe-area-inset-bottom) + 22px)); }
     kbd { display: inline-block; min-width: 1.3em; margin: 0 1px; padding: 0 4px; font: 13px/1.4 var(--display); text-align: center; color: var(--ink); background: #fff; border: 1px solid var(--paper-edge); border-radius: 5px; box-shadow: 0 2px 0 var(--paper-edge); vertical-align: middle; }
     body:not(.desktop) kbd, body:not(.desktop) .d, body.desktop .m { display: none; } /* key hints only where there's a keyboard */
@@ -166,6 +168,7 @@
     <svg class="off" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16.5 9.5l5 5m0-5l-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
   </button>
   <div id="glow" aria-hidden="true"></div>
+  <div id="lockhint">화면을 클릭하면 마우스로 둘러볼 수 있어요 · <kbd>Esc</kbd>로 커서 꺼내기</div>
   <div id="toast" role="status" hidden></div>
   <button id="jump" type="button" aria-label="점프"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l7 8h-4.5v8h-5v-8H5z" fill="currentColor"/></svg>점프</button>
   <button id="pickup" type="button" hidden>열기<kbd>F</kbd></button>
@@ -188,7 +191,7 @@
         <section><h3>목표</h3><p>마을 곳곳에 숨은 선물 상자를 찾아 퀴즈를 맞히세요. 선물을 가장 많이 모은 사람이 우승이에요.</p></section>
         <section><h3>이동</h3>
           <p class="m">화면 왼쪽을 누른 채 끌면 조이스틱이에요. 끝까지 밀면 달려요. 화면 오른쪽을 끌면 시점이 돌아가요. 오른쪽 아래 <b>점프</b> 버튼으로 뛰어올라요.</p>
-          <p class="d"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 또는 방향키로 이동, <kbd>Space</kbd>로 점프, 마우스로 화면을 끌면 시점이 돌아가요.</p></section>
+          <p class="d"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 또는 방향키로 이동, <kbd>Space</kbd>로 점프, 화면을 한 번 클릭하면 마우스 움직임만으로 시점이 돌아가요 (<kbd>Esc</kbd>로 커서 꺼내기).</p></section>
         <section><h3>선물 열기</h3>
           <p class="m">선물 가까이 가면 오른쪽 아래에 <b>열기</b> 버튼이 나와요.</p>
           <p class="d">선물 가까이 가서 <kbd>F</kbd>를 누르세요.</p>
