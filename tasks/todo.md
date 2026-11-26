@@ -1,8 +1,15 @@
-# Tasks: 송년 보물찾기 V1
+# 채널클랜 송년회 보물찾기 작업 목록
 
-Plan: tasks/plan.md · Spec: SPEC.md
+현재 게임의 방향은 [기획 문서](../SPEC.md), 로컬 실행은 [README](../README.md)를 참고한다. 한 단계씩 구현하고 실제 게임에서 확인한 뒤 다음 단계로 넘어간다.
 
----
+## 현재 사무실 버전
+
+- [x] 56석 사무실과 라운지, 보물 후보 80곳, 공유 선물 퀴즈, 관리자 시작·종료·리셋을 구현했다.
+
+<details>
+<summary>겨울 마을 V1 작업 및 검증 기록</summary>
+
+아래는 [V1 구현 계획](plan.md)에 따른 기록이다. 당시 `SPEC.md`는 `git show ff056e2:SPEC.md`로 볼 수 있다.
 
 ## Phase 1: 위험 검증 PoC
 
@@ -360,3 +367,5 @@ Plan: tasks/plan.md · Spec: SPEC.md
 ## Checkpoint 4: 출시 준비 완료
 - [ ] SPEC.md 성공 기준 1~8 전부 충족
 - [ ] 15분 풀 리허설 1회 완료
+
+</details>

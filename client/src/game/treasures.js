@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { load } from './kit.js';
 import { softDot } from './fx.js';
+import { TREASURE_SPOTS } from '../../../shared/map.js';
 
 const LOOKS = ['present-a-cube', 'present-b-cube', 'present-a-round', 'present-b-round', 'present-a-rectangle', 'present-b-rectangle'];
-const MAX = 64;
+const MAX = TREASURE_SPOTS.length;
 
 // Gift boxes from the Holiday Kit: they float, turn and glow so a sharp eye can spot them.
 // The server decides where they are each game (one per quiz question), so the set is rebuilt on start.
@@ -25,6 +26,7 @@ export function createTreasures(scene, fx) {
     setLayout(list) {
       for (const it of items) scene.remove(it.g);
       haloPos.fill(-999);
+      haloGeo.attributes.position.needsUpdate = true;
       items = list.slice(0, MAX).map((t, slot) => {
         const g = new THREE.Group();
         g.position.set(t.x, t.y, t.z);

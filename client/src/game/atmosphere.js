@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { LAMPS } from '../../../shared/map.js';
+import { MAP_THEME } from '../../../shared/map.js';
+import { LAMPS } from '../../../shared/maps/winter.js';
 
 export const HORIZON = 0x30365e; // fog and the bottom of the sky share this so the edge melts away
 
@@ -18,6 +19,11 @@ function radialTexture(inner, outer = 'rgba(0,0,0,0)') {
 // Night sky, stars, moon, falling snow and the street lamps' glow. All fake light: no
 // dynamic lights, so it costs a phone almost nothing.
 export function createAtmosphere(scene) {
+  if (MAP_THEME === 'office') {
+    scene.background = new THREE.Color(0xe3e9ea);
+    scene.fog = new THREE.Fog(0xe3e9ea, 55, 130);
+    return { update() {} };
+  }
   scene.fog = new THREE.Fog(HORIZON, 22, 80);
   scene.background = new THREE.Color(HORIZON);
 

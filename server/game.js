@@ -1,7 +1,7 @@
 import { randomUUID, timingSafeEqual, createHash } from 'node:crypto';
 import { MOVE_SPEED, NAME_MAX, SPEED_TOLERANCE, PICKUP_RADIUS, PICKUP_TOLERANCE, PICKUP_HEIGHT, RANKING_SIZE, MIN_QUESTIONS, QUIZ_SECONDS } from '../shared/constants.js';
 import { SPAWN, TREASURE_SPOTS } from '../shared/map.js';
-import { clampToCircle, lineOfSight } from '../shared/collision.js';
+import { clampToCircle, lineOfSight, MIN_GROUND_Y } from '../shared/collision.js';
 
 const QUIZ_MS = QUIZ_SECONDS * 1000;
 const QUIZ_GRACE = 1500; // network slack on the 20 s answer window
@@ -105,7 +105,7 @@ export function move(state, player, msg, now) {
   if (state.phase === 'ended') return false; // frozen after the whistle
   const { x, z, ry } = msg ?? {};
   const y = msg?.y ?? 0;
-  if (![x, z, y, ry].every(Number.isFinite) || y < 0 || y > 10) return false;
+  if (![x, z, y, ry].every(Number.isFinite) || y < MIN_GROUND_Y || y > 10) return false;
   const dt = Math.min((now - player.lastMoveAt) / 1000, 1);
   const allowed = MOVE_SPEED * SPEED_TOLERANCE * dt + 0.5; // +0.5 m absorbs network jitter
   if (Math.hypot(x - player.x, z - player.z) > allowed) return false;

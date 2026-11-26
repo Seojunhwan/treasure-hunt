@@ -46,7 +46,11 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(fileURLToPath(new URL('../dist', import.meta.url))));
 } else {
   const { createServer: createVite } = await import('vite');
-  const vite = await createVite({ server: { middlewareMode: true, hmr: { server: httpServer } }, appType: 'mpa' });
+  const vite = await createVite({
+    configLoader: 'native', // Keep Vite's temporary config modules out of Node's watch list.
+    server: { middlewareMode: true, hmr: { server: httpServer } },
+    appType: 'mpa',
+  });
   app.use(vite.middlewares);
 }
 

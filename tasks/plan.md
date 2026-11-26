@@ -1,7 +1,6 @@
 # Implementation Plan: 송년 보물찾기 V1
 
-Source spec: SPEC.md
-Tasks: tasks/todo.md
+겨울 마을 V1의 구현 계획이다. 현재 사무실 버전은 [기획 문서](../SPEC.md)와 [작업 목록](todo.md)의 첫 부분에서 이어간다. 당시 `SPEC.md`는 `git show ff056e2:SPEC.md`로 볼 수 있다.
 
 ## Overview
 폰 브라우저용 3인칭 3D 멀티플레이 보물찾기. Node 서버 1개(localhost:8080, 사내 프록시 뒤)가 게임 화면, 관리자 화면, Socket.IO를 모두 서빙한다. 임시 도형으로 기능 전체를 먼저 완성(PoC)하고, 그다음 에셋과 맵을 고도화한다.

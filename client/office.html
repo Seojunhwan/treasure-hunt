@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CHANNEL AGIT · 사무실 둘러보기</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; background: #e3e9ea; color: #283c39; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    canvas { display: block; width: 100vw; height: 100dvh; touch-action: none; }
+    header { position: absolute; left: 30px; top: 26px; pointer-events: none; }
+    .eyebrow { font-size: 10px; letter-spacing: .24em; font-weight: 700; color: #677c78; }
+    h1 { font-size: 30px; line-height: 1; letter-spacing: -.05em; margin: 10px 0; }
+    h1 span { background: #f5d348; padding: 3px 8px; margin-right: 4px; }
+    header p { font-size: 12px; color: #617571; }
+    nav { position: absolute; right: 28px; top: 28px; display: flex; gap: 7px; flex-wrap: wrap; justify-content: flex-end; max-width: 52%; }
+    button, nav a { text-decoration: none; border: 1px solid #ccdad5; border-radius: 25px; background: #ffffffdd; color: #344746; padding: 10px 15px; cursor: pointer; font: inherit; font-size: 11px; transition: background .15s; }
+    button:hover, button.active, nav a:hover, nav a[aria-current] { background: #344746; color: #fff; border-color: #344746; }
+    button:focus-visible, nav a:focus-visible { outline: 3px solid #e4be18; outline-offset: 3px; }
+    footer { position: absolute; left: 28px; right: 28px; bottom: 22px; display: flex; justify-content: space-between; align-items: end; gap: 20px; pointer-events: none; }
+    .legend { background: #fffef7e8; border: 1px solid #ffffff; border-radius: 14px; padding: 14px 18px; font-size: 11px; box-shadow: 0 8px 30px #364d3a0a; }
+    .legend b { display: block; font-size: 12px; margin-bottom: 7px; }
+    .legend span { display: inline-block; margin-right: 14px; line-height: 1.8; }
+    .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; background: #f5d348; }
+    .note { text-align: right; font-size: 10px; line-height: 1.8; color: #617571; }
+    #status { position: absolute; bottom: 95px; left: 30px; font-size: 12px; padding: 10px 14px; border-radius: 10px; background: #fff9de; max-width: 70vw; }
+    #status[hidden] { display: none; }
+    @media(max-width: 700px) { header { left: 16px; top: 18px; } h1 { font-size: 22px; } header p { max-width: 180px; line-height: 1.5; } nav { top: auto; bottom: 105px; right: 16px; max-width: 75%; } button, nav a { padding: 8px 11px; } footer { left: 16px; right: 16px; bottom: 16px; } .note { display: none; } }
+  </style>
+  <!-- Standalone review only: the game continues to use its existing npm dependencies.
+       This page needs internet for Three.js; no install/build or game server is needed. -->
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"}}</script>
+</head>
+<body>
+  <header><div class="eyebrow">2026 CHANNEL CLAN · OFFICE HUNT</div><h1><span>우리들의</span> 아지트</h1><p>업무석 네 구역과 라운지</p></header>
+  <nav aria-label="사무실 둘러보기">
+    <button data-zone="lounge">라운지 보기</button>
+    <button data-zone="passage">라운지 통로 보기</button>
+    <button data-zone="mirror">거울 보기</button>
+    <button data-zone="all" class="active">전체 보기</button><button data-zone="entry">복도·출입구 보기</button><button data-zone="desks">책상 가까이 보기</button><button id="gifts" aria-pressed="false">보물 위치 보기</button>
+  </nav>
+  <div id="status" role="status">사무실의 가구를 배치하고 있습니다…</div>
+  <footer><div class="legend"><b>CHANNEL / AGIT</b><span><i></i>56개 업무 좌석</span><span>입구와 화장실 방향</span><br>드래그로 회전 · 스크롤로 확대 · 우클릭 드래그로 이동</div><div class="note">Kenney Furniture Kit · CC0<br>실제 비공개 평면도를 사용하지 않은 가상 공간</div></footer>
+  <script type="module" src="./src/office-preview.js"></script>
+</body>
+</html>

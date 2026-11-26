@@ -1,13 +1,16 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { load, townHouse } from './kit.js';
-import { S, MAP_HALF, SPAWN, HOUSES, TOWERS, PROPS, ROOMS, LAMPS, FURNITURE_SCALE, SCAFFOLDS, houseSize, rot } from '../../../shared/map.js';
+import { buildOfficeWorld } from './office-world.js';
+import { MAP_THEME } from '../../../shared/map.js';
+import { S, MAP_HALF, SPAWN, HOUSES, TOWERS, PROPS, ROOMS, LAMPS, FURNITURE_SCALE, SCAFFOLDS, houseSize, rot } from '../../../shared/maps/winter.js';
 
 const Q = Math.PI / 2;
 
 // Static scenery is built from the shared map data, then merged into a handful of meshes:
 // hundreds of kit pieces would otherwise be hundreds of draw calls on a phone.
 export async function buildWorld(scene) {
+  if (MAP_THEME === 'office') return buildOfficeWorld(scene, mergeStatic);
   scene.add(new THREE.HemisphereLight(0x8a9ad6, 0x2a2238, 1.25));
   const moon = new THREE.DirectionalLight(0xa8b8ff, 0.7);
   moon.position.set(-30, 50, 20);
@@ -74,7 +77,7 @@ async function tower() {
   return g;
 }
 
-function mergeStatic(root) {
+export function mergeStatic(root) {
   root.updateMatrixWorld(true);
   const groups = new Map();
   root.traverse((o) => {

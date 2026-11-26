@@ -4,6 +4,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { MAP_THEME } from '../../../shared/map.js';
 
 // Warm grade + soft vignette, in linear space before the output conversion.
 const Grade = {
@@ -23,12 +24,13 @@ const Grade = {
 
 const MIN_FPS = 40; // iPhone with bloom + 45 bots held the 50s (2026-11-24)
 
-// Bloom makes windows and lamps glow. It's on at every load; it's the most expensive thing on screen,
-// so it turns itself off for the rest of the visit if the device can't hold the frame rate (?post=0/1 forces it).
+// The night village uses bloom for windows and lamps. The bright office uses direct rendering:
+// the night effect washes its pale floor and furniture out to white. ?post=0/1 overrides the default.
+// On slower devices, effects turn off for the rest of the visit.
 export function createPost(renderer, scene, camera) {
   const forced = new URLSearchParams(location.search).get('post');
   localStorage.removeItem('treasure-hunt-post'); // older builds remembered "off" forever
-  let enabled = forced !== null ? forced === '1' : true;
+  let enabled = forced !== null ? forced === '1' : MAP_THEME !== 'office';
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
   const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.45, 0.6);

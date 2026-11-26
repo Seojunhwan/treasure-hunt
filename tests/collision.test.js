@@ -31,12 +31,13 @@ test('free space untouched', () => {
 });
 
 test('map edge clamps', () => {
-  expect(resolveCollision(80, -80, r, 0, [])).toEqual({ x: MAP_HALF - r, z: -(MAP_HALF - r) });
+  const outside = MAP_HALF + 1;
+  expect(resolveCollision(outside, -outside, r, 0, [])).toEqual({ x: MAP_HALF - r, z: -(MAP_HALF - r) });
 });
 
 test('clampToCircle keeps points inside spawn', () => {
-  expect(clampToCircle(3, 0, SPAWN)).toEqual({ x: 3, z: 0 });
-  const p = clampToCircle(20, 0, SPAWN);
+  expect(clampToCircle(SPAWN.x, SPAWN.z, SPAWN)).toEqual({ x: SPAWN.x, z: SPAWN.z });
+  const p = clampToCircle(SPAWN.x + SPAWN.r + 5, SPAWN.z, SPAWN);
   expect(p.x).toBeCloseTo(SPAWN.x + SPAWN.r);
 });
 

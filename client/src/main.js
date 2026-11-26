@@ -24,7 +24,7 @@ document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 const atmosphere = createAtmosphere(scene);
-buildWorld(scene); // async: houses pop in as they load
+buildWorld(scene); // async: furniture pops in as it loads
 
 // player is the position/rotation anchor; the model is attached once we know our id
 const player = new THREE.Group();

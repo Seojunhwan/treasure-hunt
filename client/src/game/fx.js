@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { MAP_THEME } from '../../../shared/map.js';
 
 export function softDot(inner = 'rgba(255,255,255,1)') {
   const c = document.createElement('canvas');
@@ -89,8 +90,8 @@ export function createTrail(fx, onStep) {
     if (lx === null || y > 0.05) { lx = x; lz = z; return; } // off the ground (stairs, decks) leaves no prints
     if (Math.hypot(x - lx, z - lz) < 0.65) return;
     lx = x; lz = z; side = -side;
-    fx.footprint(x, z, ry, side);
+    if (MAP_THEME !== 'office') fx.footprint(x, z, ry, side);
     onStep?.(speed);
-    if (speed > 3.5) fx.burst(x, 0.05, z, { count: 4, colors: [0xffffff, 0xe6eeff], speed: 0.8, upward: 1.6, gravity: 5, ttl: 0.5 });
+    if (MAP_THEME !== 'office' && speed > 3.5) fx.burst(x, 0.05, z, { count: 4, colors: [0xffffff, 0xe6eeff], speed: 0.8, upward: 1.6, gravity: 5, ttl: 0.5 });
   };
 }

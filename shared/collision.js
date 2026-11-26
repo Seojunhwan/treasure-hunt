@@ -1,5 +1,8 @@
-import { MAP_HALF, COLLIDERS, PLATFORMS, RAMPS } from './map.js';
+import * as map from './map.js';
 import { PLAYER_HEIGHT, STEP_HEIGHT, GRAVITY, MAX_FALL, HEAD_ROOM } from './constants.js';
+
+const { MAP_HALF, COLLIDERS, PLATFORMS, RAMPS, GROUND_LEVELS = [] } = map;
+export const MIN_GROUND_Y = Math.min(0, ...GROUND_LEVELS.map(({ y }) => y));
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -33,9 +36,11 @@ export function resolveCollision(x, z, r, y = 0, boxes = COLLIDERS) {
 
 const inside = (s, x, z) => Math.abs(x - s.x) <= s.w / 2 && Math.abs(z - s.z) <= s.d / 2;
 
+export const groundHeight = (x, z) => GROUND_LEVELS.find((surface) => inside(surface, x, z))?.y ?? 0;
+
 // Height of the highest surface under (x, z) that a walker at height y can step onto.
 export function heightAt(x, z, y = 0, platforms = PLATFORMS, ramps = RAMPS) {
-  let h = 0;
+  let h = groundHeight(x, z);
   const reach = y + STEP_HEIGHT;
   for (const p of platforms) if (p.y > h && p.y <= reach && inside(p, x, z)) h = p.y;
   for (const r of ramps) {

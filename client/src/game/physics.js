@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { resolveCollision } from '../../../shared/collision.js';
 import { load } from './kit.js';
+import { MAP_THEME } from '../../../shared/map.js';
 
 // Pushable props: snowballs roll, sleds slide, little snowmen wobble. A few sit in the spawn
 // plaza on purpose: something to kick around while waiting for the start.
 // shortcut: each phone simulates its own copy (pushed by every player it can see), so copies can
 // drift apart a little between phones. Fine for toys that never hide treasures; make it
 // server-authoritative if props ever matter to the game.
-export const BODIES = [
+export const BODIES = MAP_THEME === 'office' ? [] : [
   ...[[3, -9, 0.55], [-3.2, -10, 0.45], [5.5, 4.5, 0.6], [-6, -3, 0.4], [2.2, 30, 0.6], [-2.5, -36, 0.5], [30, 2.5, 0.55], [-36, -2.4, 0.5], [16, -40, 0.6], [-18, 40, 0.55], [38, -30, 0.45], [-30, 20, 0.6]]
     .map(([x, z, r]) => ({ kind: 'snowball', x, z, r, mass: r * 3 })),
   ...[[-2.6, 14, 0.3], [27, -33, 1.2], [-33, 39, 2.4], [12, 36, 0.8]].map(([x, z, ry]) => ({ kind: 'sled', x, z, r: 0.7, ry, mass: 2 })),
