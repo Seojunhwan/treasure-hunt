@@ -6,11 +6,11 @@ import { clampToCircle, lineOfSight, MIN_GROUND_Y } from '../shared/collision.js
 const QUIZ_MS = QUIZ_SECONDS * 1000;
 const QUIZ_GRACE = 1500; // network slack on the 20 s answer window
 
-// phase: 'waiting' (stuck in spawn plaza) → 'playing' → 'ended'
+// phase: waiting → optional opening → playing → ended
 // One gift per quiz question, laid out on a random subset of the hiding spots when the game starts.
-export function createGame(durationMs, questions = []) {
+export function createGame(durationMs, questions = [], openingMs = 0) {
   return {
-    phase: 'waiting', durationMs, endsAt: 0,
+    phase: 'waiting', durationMs, endsAt: 0, openingMs, openingEndsAt: 0,
     players: new Map(), // keyed by secret token
     questions,
     treasures: [],
@@ -25,12 +25,23 @@ export function start(state, now, rand = Math.random) {
   const n = state.questions.length;
   if (n < MIN_QUESTIONS) return { error: `문제가 최소 ${MIN_QUESTIONS}개 필요해요 (지금 ${n}개)` };
   if (n > TREASURE_SPOTS.length) return { error: `문제는 최대 ${TREASURE_SPOTS.length}개까지예요 (지금 ${n}개)` };
+  if (state.openingMs > 0) {
+    state.phase = 'opening';
+    state.openingEndsAt = now + state.openingMs;
+  } else {
+    beginHunt(state, now, rand);
+  }
+  return { ok: true };
+}
+
+function beginHunt(state, now, rand) {
+  const n = state.questions.length;
   const spots = TREASURE_SPOTS.map((_, i) => [rand(), i]).sort((a, b) => a[0] - b[0]).slice(0, n).map(([, i]) => TREASURE_SPOTS[i]);
   state.treasures = state.questions.map((q, id) => ({ id, ...spots[id], qid: q.id, foundBy: null }));
   state.phase = 'playing';
+  state.openingEndsAt = 0;
   state.endsAt = now + state.durationMs;
   for (const p of state.players.values()) { p.lastMoveAt = now; p.attempts = new Map(); p.tried = new Set(); } // leaving the plaza is not a teleport
-  return { ok: true };
 }
 
 export const treasureLayout = (state) => state.treasures.map(({ id, x, y, z }) => ({ id, x, y, z }));
@@ -39,6 +50,7 @@ export const treasureLayout = (state) => state.treasures.map(({ id, x, y, z }) =
 export function reset(state) {
   state.phase = 'waiting';
   state.endsAt = 0;
+  state.openingEndsAt = 0;
   state.treasures = [];
   for (const p of state.players.values()) {
     Object.assign(p, spawnPoint(), { y: 0, score: 0, scoredAt: 0, attempts: new Map(), tried: new Set() });
@@ -46,7 +58,11 @@ export function reset(state) {
   return [...state.players.values()];
 }
 
-export function tick(state, now) {
+export function tick(state, now, rand = Math.random) {
+  if (state.phase === 'opening' && now >= state.openingEndsAt) {
+    beginHunt(state, now, rand);
+    return true;
+  }
   if (state.phase === 'playing' && now >= state.endsAt) {
     state.phase = 'ended';
     return true;
@@ -55,7 +71,7 @@ export function tick(state, now) {
 }
 
 export const remainingMs = (state, now) =>
-  state.phase === 'playing' ? Math.max(0, state.endsAt - now) : state.phase === 'waiting' ? state.durationMs : 0;
+  state.phase === 'playing' ? Math.max(0, state.endsAt - now) : state.phase === 'ended' ? 0 : state.durationMs;
 
 // Constant-time compare so the admin token can't be guessed byte by byte.
 export function isAdminToken(given, expected) {
@@ -109,7 +125,7 @@ export function move(state, player, msg, now) {
   const dt = Math.min((now - player.lastMoveAt) / 1000, 1);
   const allowed = MOVE_SPEED * SPEED_TOLERANCE * dt + 0.5; // +0.5 m absorbs network jitter
   if (Math.hypot(x - player.x, z - player.z) > allowed) return false;
-  const p = state.phase === 'waiting' ? clampToCircle(x, z, SPAWN) : { x, z };
+  const p = state.phase !== 'playing' ? clampToCircle(x, z, SPAWN) : { x, z };
   Object.assign(player, p, { y, ry, air: msg.air === true, lastMoveAt: now });
   return true;
 }
@@ -169,6 +185,7 @@ export function snapshot(state, now) {
   return {
     phase: state.phase,
     remainingMs: remainingMs(state, now),
+    openingRemainingMs: state.phase === 'opening' ? Math.max(0, state.openingEndsAt - now) : 0,
     players,
     found: state.treasures.filter((t) => t.foundBy).map((t) => t.id),
     treasureCount: state.treasures.length,

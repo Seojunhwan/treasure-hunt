@@ -141,6 +141,22 @@
     #quiz .bar i { display: block; height: 100%; background: var(--pine); transform-origin: left; }
     #quiz.hurry .bar i { background: var(--red); }
 
+    #pickup.talk { width: auto; height: 48px; padding: 0 15px; border-radius: 12px; font-size: 18px;
+      background: var(--pine); box-shadow: inset 0 -3px #13271e, 0 4px 12px #0005; animation: none; }
+    #pickup.talk::before { display: none; }
+    #pickup.talk kbd { position: static; transform: none; margin-left: 6px; }
+    .leader-card { position: fixed; z-index: 5; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+      box-sizing: border-box; width: min(550px, calc(100% - var(--left) - var(--right))); display: grid; grid-template-columns: 1fr auto;
+      align-items: center; gap: 4px 14px; padding: 14px 17px; }
+    .leader-card p, .leader-card h2 { margin: 0; font-weight: normal; }
+    .leader-card h2 { color: var(--pine); font-size: 21px; }
+    .leader-card h2 small { margin-left: 6px; color: #665746; font-size: 14px; }
+    .leader-card p { grid-column: 1; font-size: clamp(17px, 3.4vw, 22px); line-height: 1.35; word-break: keep-all; }
+    .leader-card button { grid-area: 1 / 2 / span 2; min-height: 44px; padding: 5px 14px; border: 0; border-radius: 8px;
+      color: var(--paper); background: var(--pine); font: 17px var(--display); box-shadow: inset 0 -3px #13271e; }
+
+    #opening-card { pointer-events: none; }
+
     /* --- small note: wrong answer + the right one, out of the way --- */
     #note { position: fixed; z-index: 3; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%); max-width: min(520px, 60vw); padding: 8px 14px; border-radius: 10px;
       background: rgba(251,243,226,.94); color: var(--ink); font-size: 14px; line-height: 1.4; box-shadow: 0 4px 14px rgba(0,0,0,.35); pointer-events: none; animation: rise .3s ease-out; }
@@ -168,9 +184,20 @@
   <div id="glow" aria-hidden="true"></div>
   <div id="toast" role="status" hidden></div>
   <button id="jump" type="button" aria-label="점프"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l7 8h-4.5v8h-5v-8H5z" fill="currentColor"/></svg>점프</button>
-  <button id="pickup" type="button" hidden>열기<kbd>F</kbd></button>
+  <button id="pickup" type="button" hidden><span>열기</span><kbd>F</kbd></button>
   <button id="guide-btn" type="button" hidden>게임 방법</button>
   <div id="note" role="status" hidden><b></b><span></span></div>
+
+  <section id="leader-dialog" class="card leader-card" role="dialog" aria-labelledby="leader-name" aria-describedby="leader-line" hidden>
+    <h2 id="leader-name"><span></span><small>리더 NPC</small></h2>
+    <p id="leader-line"></p>
+    <button type="button">닫기</button>
+  </section>
+
+  <section id="opening-card" class="card leader-card" role="status" aria-atomic="true" hidden>
+    <h2>zinga.k <small>리더 NPC</small></h2>
+    <p></p>
+  </section>
 
   <div id="quiz" class="sheet" role="dialog" aria-modal="true" aria-label="선물 퀴즈" hidden>
     <div class="card">

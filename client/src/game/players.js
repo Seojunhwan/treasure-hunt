@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { createAvatar, variantFor } from './avatar.js';
 import { createTrail } from './fx.js';
 
-function makeLabel(text) {
+export function makeLabel(text) {
   const c = document.createElement('canvas');
   c.width = 256; c.height = 64;
   const g = c.getContext('2d');
@@ -12,8 +12,8 @@ function makeLabel(text) {
     g.clearRect(0, 0, 256, 64);
     g.font = '36px Jua, system-ui, sans-serif';
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.lineWidth = 7; g.strokeStyle = 'rgba(20,14,10,.75)'; g.strokeText(text, 128, 34);
-    g.fillStyle = '#fbf3e2'; g.fillText(text, 128, 34);
+    g.lineWidth = 7; g.strokeStyle = 'rgba(20,14,10,.75)'; g.strokeText(text, 128, 34, 244);
+    g.fillStyle = '#fbf3e2'; g.fillText(text, 128, 34, 244);
     tex.needsUpdate = true;
   };
   draw();

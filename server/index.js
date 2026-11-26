@@ -7,7 +7,8 @@ import { Server } from 'socket.io';
 import { createGame, join, move, snapshot, start, reset, tick, isAdminToken, openTreasure, answerTreasure, treasureLayout, setQuestions } from './game.js';
 import { loadQuestions, saveQuestions, validateQuestions, MAX_QUESTIONS } from './questions.js';
 import { loadSettings, saveSettings, validateJoinUrl } from './settings.js';
-import { TICK_MS, GAME_SECONDS_DEFAULT, MIN_QUESTIONS } from '../shared/constants.js';
+import { TICK_MS, GAME_SECONDS_DEFAULT, MIN_QUESTIONS, OPENING_MS } from '../shared/constants.js';
+import { MAP_THEME } from '../shared/map.js';
 
 const PORT = Number(process.env.PORT ?? 8080);
 const GAME_SECONDS = Number(process.env.GAME_SECONDS ?? GAME_SECONDS_DEFAULT);
@@ -30,7 +31,7 @@ app.get('/api/questions', adminOnly, (_req, res) => {
   res.json({ questions: game.questions, min: MIN_QUESTIONS, max: MAX_QUESTIONS, phase: game.phase });
 });
 app.put('/api/questions', adminOnly, express.json({ limit: '200kb' }), (req, res) => {
-  if (game.phase === 'playing') return res.status(409).json({ error: '게임 중에는 문제를 저장할 수 없어요. 끝난 뒤나 리셋한 뒤에 저장해 주세요' });
+  if (game.phase === 'opening' || game.phase === 'playing') return res.status(409).json({ error: '게임 중에는 문제를 저장할 수 없어요. 끝난 뒤나 리셋한 뒤에 저장해 주세요' });
   const v = validateQuestions(req.body?.questions);
   if (v.error) return res.status(400).json({ error: v.error });
   saveQuestions(v.list);
@@ -54,7 +55,7 @@ if (process.env.NODE_ENV === 'production') {
   app.use(vite.middlewares);
 }
 
-const game = createGame(GAME_SECONDS * 1000, loadQuestions());
+const game = createGame(GAME_SECONDS * 1000, loadQuestions(), MAP_THEME === 'office' ? OPENING_MS : 0);
 const broadcast = () => io.to(['players', 'admins']).emit('world:state', snapshot(game, Date.now()));
 
 io.on('connection', (socket) => {
@@ -119,7 +120,9 @@ io.on('connection', (socket) => {
     if (!socket.data.admin) return;
     const res = start(game, Date.now());
     if (typeof ack === 'function') ack(res);
-    if (res.ok) { io.to('players').emit('game:treasures', treasureLayout(game)); broadcast(); }
+    if (!res.ok) return;
+    if (game.phase === 'playing') io.to('players').emit('game:treasures', treasureLayout(game));
+    broadcast();
   });
 
   socket.on('admin:reset', () => {
@@ -137,7 +140,9 @@ io.on('connection', (socket) => {
 });
 
 setInterval(() => {
-  tick(game, Date.now());
+  if (tick(game, Date.now()) && game.phase === 'playing') {
+    io.to('players').emit('game:treasures', treasureLayout(game));
+  }
   broadcast();
 }, TICK_MS);
 

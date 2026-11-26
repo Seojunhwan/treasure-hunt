@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest';
-import { createGame as create, join, move, snapshot, start, reset, tick, remainingMs, isAdminToken, openTreasure, answerTreasure, ranking } from '../server/game.js';
+import { createGame as create, join, move, snapshot, start, reset, tick, remainingMs, isAdminToken, openTreasure, answerTreasure, ranking, treasureLayout } from '../server/game.js';
 import { SPAWN, TREASURE_SPOTS } from '../shared/map.js';
 import { MIN_QUESTIONS } from '../shared/constants.js';
 import { validateQuestions } from '../server/questions.js';
@@ -95,6 +95,36 @@ test('ended: movement frozen', () => {
   const p = join(g, { name: 'a' }, T0).player;
   start(g, T0); tick(g, T0 + MIN15);
   expect(move(g, p, { x: p.x + 0.1, z: p.z, ry: 0 }, T0 + MIN15 + 100)).toBe(false);
+});
+
+test('opening holds players and treasures until the full round starts', () => {
+  const g = create(MIN15, QS(), 6500);
+  const p = join(g, { name: 'a' }, T0).player;
+  Object.assign(p, { x: SPAWN.x + SPAWN.r, z: SPAWN.z });
+  expect(start(g, T0).ok).toBe(true);
+  expect(start(g, T0 + 100).error).toBeTruthy();
+  expect(snapshot(g, T0 + 1500)).toMatchObject({ phase: 'opening', openingRemainingMs: 5000, remainingMs: MIN15, treasureCount: 0 });
+  expect(treasureLayout(g)).toEqual([]);
+  expect(move(g, p, { x: p.x + 0.4, z: p.z, ry: 0 }, T0 + 100)).toBe(true);
+  expect(p.x).toBeCloseTo(SPAWN.x + SPAWN.r);
+  expect(openTreasure(g, p, 0, T0 + 100).result).toBe('invalid');
+  expect(tick(g, T0 + 6499)).toBe(false);
+  expect(tick(g, T0 + 6540)).toBe(true);
+  expect(snapshot(g, T0 + 6540)).toMatchObject({ phase: 'playing', openingRemainingMs: 0, remainingMs: MIN15, treasureCount: MIN_QUESTIONS });
+  expect(move(g, p, { x: p.x + 0.4, z: p.z, ry: 0 }, T0 + 6550)).toBe(true);
+  expect(p.x).toBeGreaterThan(SPAWN.x + SPAWN.r);
+  expect(tick(g, T0 + 6640)).toBe(false);
+});
+
+test('reset cancels a pending opening and a new round uses its own deadline', () => {
+  const g = create(MIN15, QS(), 6500);
+  start(g, T0);
+  reset(g);
+  expect(tick(g, T0 + 6500)).toBe(false);
+  expect(snapshot(g, T0 + 6500)).toMatchObject({ phase: 'waiting', openingRemainingMs: 0, treasureCount: 0 });
+  expect(start(g, T0 + 7000).ok).toBe(true);
+  expect(tick(g, T0 + 13499)).toBe(false);
+  expect(tick(g, T0 + 13500)).toBe(true);
 });
 
 test('start: players can leave the plaza right away (no teleport rejection after a long wait)', () => {

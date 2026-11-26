@@ -16,6 +16,7 @@ export const MAX_FALL = 25; // m/s terminal speed
 export const HEAD_ROOM = 1.6; // m a jump needs under a roof or deck (a bit under PLAYER_HEIGHT so beds still fit)
 export const PICKUP_HEIGHT = 1.2; // max height difference between player feet and treasure
 export const NAME_MAX = 12;
+export const OPENING_MS = 6500;
 export const GAME_SECONDS_DEFAULT = 900; // 15 min; server env GAME_SECONDS overrides for testing
 export const TICK_MS = 100; // position send + broadcast rate (10 Hz)
 export const SPEED_TOLERANCE = 1.5; // server accepts moves up to this multiple of MOVE_SPEED

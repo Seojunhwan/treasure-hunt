@@ -20,7 +20,7 @@ function loadVariant(v) {
 export const variantFor = (id) => VARIANTS[parseInt(id.slice(0, 6), 16) % VARIANTS.length];
 
 // Returns immediately; the model pops in when loaded. root faces -z at rotation 0 (game convention).
-export function createAvatar(variant) {
+export function createAvatar(variant, { scale = 1 } = {}) {
   const root = new THREE.Group();
   let mixer = null, actions = {}, current = null, onceAction = null, air = null;
   const play = (name) => {
@@ -32,7 +32,7 @@ export function createAvatar(variant) {
   loadVariant(variant).then((gltf) => {
     const model = cloneSkinned(gltf.scene);
     const h = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3()).y;
-    model.scale.setScalar(HEIGHT / h);
+    model.scale.setScalar((HEIGHT * scale) / h);
     model.rotation.y = Math.PI; // Kenney models face +z
     root.add(model);
     mixer = new THREE.AnimationMixer(model);

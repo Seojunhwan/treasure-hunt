@@ -77,5 +77,5 @@ if (!ok) {
   ({ questions, min, max } = data);
   $('app').hidden = false;
   render();
-  if (data.phase === 'playing') message('게임 중에는 저장할 수 없어요. 끝난 뒤나 리셋한 뒤에 저장해 주세요', 'err');
+  if (data.phase === 'opening' || data.phase === 'playing') message('게임 중에는 저장할 수 없어요. 끝난 뒤나 리셋한 뒤에 저장해 주세요', 'err');
 }

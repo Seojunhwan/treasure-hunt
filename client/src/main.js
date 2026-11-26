@@ -4,8 +4,9 @@ import { createFollowCamera } from './game/camera.js';
 import { buildWorld } from './game/world.js';
 import { createAtmosphere } from './game/atmosphere.js';
 import { createPost } from './game/post.js';
-import { createRemotePlayers } from './game/players.js';
+import { createRemotePlayers, makeLabel } from './game/players.js';
 import { createAvatar, variantFor } from './game/avatar.js';
+import { createOpening } from './game/opening.js';
 import { createTreasures } from './game/treasures.js';
 import { createHint } from './game/hint.js';
 import { unlockAudio, play, startAmbient, isMuted, setMuted } from './game/audio.js';
@@ -16,7 +17,7 @@ import { showBanner, goFullscreen } from './install.js';
 import { mmss } from './format.js';
 import { MOVE_SPEED, PLAYER_RADIUS, PICKUP_RADIUS, PICKUP_HEIGHT, HINT_SECONDS, JUMP_SPEED, QUIZ_SECONDS } from '../../shared/constants.js';
 import { resolveCollision, clampToCircle, verticalStep, lineOfSight } from '../../shared/collision.js';
-import { SPAWN, INTERIORS } from '../../shared/map.js';
+import { SPAWN, INTERIORS, MAP_THEME } from '../../shared/map.js';
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); // full retina res costs too much fps on mid-range phones
@@ -25,6 +26,28 @@ document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const atmosphere = createAtmosphere(scene);
 buildWorld(scene); // async: furniture pops in as it loads
+
+const LEADER_SCALE = 1.5;
+const leader = {
+  name: 'zinga.k', line: '가운데 복도에서 공기청정기 옆 책상을 살펴봐요.',
+  variant: 'male-f',
+  x: SPAWN.x + 0.9, z: SPAWN.z - 2.7, reach: 3.2,
+};
+const leaderDialog = document.getElementById('leader-dialog');
+const closeLeaderButton = leaderDialog.querySelector('button');
+document.querySelector('#leader-name span').textContent = leader.name;
+document.getElementById('leader-line').textContent = leader.line;
+const leaderAvatar = MAP_THEME === 'office' ? createAvatar(leader.variant, { scale: LEADER_SCALE }) : null;
+if (leaderAvatar) {
+  const label = makeLabel(`${leader.name} · 리더 NPC`);
+  label.position.y *= LEADER_SCALE;
+  leaderAvatar.root.add(label);
+  leaderAvatar.root.position.set(leader.x, 0, leader.z);
+  leaderAvatar.root.rotation.y = Math.PI;
+  scene.add(leaderAvatar.root);
+}
+
+const opening = leaderAvatar ? createOpening(scene, leader, document.getElementById('opening-card')) : null;
 
 // player is the position/rotation anchor; the model is attached once we know our id
 const player = new THREE.Group();
@@ -89,24 +112,28 @@ renderer.setAnimationLoop((now) => {
   const dt = Math.min((now - prev) / 1000, 0.1); // cap avoids a huge jump after the tab was backgrounded
   prev = now;
   const look = controls.takeLook();
-  view.rotate(look.dx, look.dy);
+  const openingActive = opening && me && phase === 'opening';
+  const openingFocus = openingActive ? opening.update(now) : 0;
+  if (!openingActive) view.rotate(look.dx, look.dy);
 
-  const m = me && phase !== 'ended' && !quiz ? controls.getMove() : { x: 0, y: 0 };
+  const m = me && phase !== 'ended' && !quiz && leaderDialog.hidden ? controls.getMove() : { x: 0, y: 0 };
   myAvatar?.setSpeed(Math.hypot(m.x, m.y) * MOVE_SPEED);
   myAvatar?.update(dt);
+  leaderAvatar?.update(dt);
   if (m.x || m.y) {
     // camera-relative: forward points from camera toward player on the ground plane
-    const s = Math.sin(view.yaw), c = Math.cos(view.yaw);
+    const yaw = openingFocus ? opening.movementYaw(view.yaw, openingFocus) : view.yaw;
+    const s = Math.sin(yaw), c = Math.cos(yaw);
     const vx = (-s * m.y + c * m.x) * MOVE_SPEED;
     const vz = (-c * m.y - s * m.x) * MOVE_SPEED;
     let p = resolveCollision(player.position.x + vx * dt, player.position.z + vz * dt, PLAYER_RADIUS, player.position.y);
-    if (phase === 'waiting') p = clampToCircle(p.x, p.z, SPAWN);
+    if (phase !== 'playing') p = clampToCircle(p.x, p.z, SPAWN);
     player.position.x = p.x;
     player.position.z = p.z;
     player.rotation.y = Math.atan2(-vx, -vz);
   }
   if (me) {
-    if (jumpAsked && grounded && !quiz && phase !== 'ended') { vy = JUMP_SPEED; grounded = false; }
+    if (jumpAsked && grounded && !quiz && leaderDialog.hidden && phase !== 'ended') { vy = JUMP_SPEED; grounded = false; }
     jumpAsked = false;
     const v = verticalStep(player.position.x, player.position.z, player.position.y, vy, grounded, dt);
     player.position.y = v.y; vy = v.vy; grounded = v.grounded;
@@ -127,14 +154,22 @@ renderer.setAnimationLoop((now) => {
   const reach = pickBtn.hidden ? PICKUP_RADIUS : PICKUP_RADIUS + 0.4;
   const canPick = !!near && near.dist <= reach && Math.abs(near.y - pos.y) <= PICKUP_HEIGHT &&
     lineOfSight([pos.x, pos.y + 1.2, pos.z], [near.x, near.y + 0.4, near.z]);
-  if (pickBtn.hidden === canPick) pickBtn.hidden = !canPick; // touch the DOM only on change
+  const canTalk = leaderInReach();
+  if (!canTalk) leaderDialog.hidden = true;
+  if (pickBtn.classList.contains('talk') !== canTalk) {
+    pickBtn.classList.toggle('talk', canTalk);
+    pickBtn.querySelector('span').textContent = canTalk ? '말 걸기' : '열기';
+  }
+  const showAction = leaderDialog.hidden && (canTalk || canPick);
+  if (pickBtn.hidden === showAction) pickBtn.hidden = !showAction;
   nearId = canPick ? near.id : null;
   hint.update(now, near && remaining <= HINT_SECONDS * 1000 ? near.dist : null);
   if (camOverride) { view.camera.position.set(...camOverride.pos); view.camera.lookAt(...camOverride.look); }
   else {
     fp += ((me && indoors(pos.x, pos.z) ? 1 : 0) - fp) * (1 - Math.exp(-dt * 5));
     const camDist = view.follow(player.position, dt, fp);
-    if (myAvatar) myAvatar.root.visible = camDist > 0.9; // don't look at the inside of our own head
+    if (openingFocus) opening.blendCamera(view.camera, openingFocus);
+    if (myAvatar) myAvatar.root.visible = openingFocus < 0.95 && camDist > 0.9;
   }
   atmosphere.update(dt, view.camera);
   post.render(now);
@@ -149,14 +184,24 @@ function showStatus(connected) {
 }
 const hudTimer = document.getElementById('timer');
 const hudMsg = document.getElementById('msg');
-const PHASE_MSG = { waiting: '관리자가 시작하면 출발해요!', playing: '', ended: '게임 종료!' };
+const PHASE_MSG = { waiting: '관리자가 시작하면 출발해요!', opening: '', playing: '', ended: '게임 종료!' };
 hudMsg.textContent = PHASE_MSG.waiting;
 const net = connect({
   onStatus: () => {
     const s = net.socket;
     showStatus(s.connected);
   },
+  onRejoin: restorePlayer,
   onState: (state) => {
+    if (state.phase === 'opening') {
+      if (phase !== 'opening') {
+        guide(false);
+        leaderDialog.hidden = true;
+      }
+      opening?.sync(state.openingRemainingMs);
+    } else if (phase === 'opening') {
+      opening?.clear();
+    }
     if (state.phase !== phase) hudMsg.textContent = PHASE_MSG[state.phase];
     if (state.phase === 'ended' && me) showResult(state.ranking);
     else resultEl.hidden = true;
@@ -164,7 +209,7 @@ const net = connect({
       toast('힌트 시작! 가까울수록 소리가 빨라져요', 'gold');
       play('hint');
     }
-    if (me && phase === 'waiting' && state.phase === 'playing') { toast('출발! 보물을 찾아라'); guide(false); play('start'); }
+    if (me && (phase === 'opening' || (!opening && phase === 'waiting')) && state.phase === 'playing') { toast('출발! 보물을 찾아라'); guide(false); play('start'); }
     if (me && phase === 'playing' && state.phase === 'ended') play('end');
     phase = state.phase;
     guideBtn.hidden = !me || phase !== 'waiting';
@@ -253,15 +298,16 @@ function answer(choice, btn) {
   });
 }
 
-// keyboard: F opens the gift in reach, 1-6 picks an answer, Esc/Enter closes the guide
+// keyboard: F talks to the leader or opens the gift in reach; 1-6 picks a quiz answer
 addEventListener('keydown', (e) => {
   if (e.target instanceof HTMLInputElement || e.repeat) return;
   if (!guideEl.hidden) { if (e.code === 'Escape' || e.code === 'Enter') guide(false); return; }
+  if (!leaderDialog.hidden) { if (e.code === 'Escape') closeLeader(); return; }
   if (quiz) {
     const n = /^(?:Digit|Numpad)([1-9])$/.exec(e.code)?.[1];
     const btn = n && quizChoices.children[n - 1];
     if (btn) answer(n - 1, btn);
-  } else if (e.code === 'KeyF') openGift();
+  } else if (e.code === 'KeyF') interact();
   else if (e.code === 'Space') { e.preventDefault(); jumpAsked = true; }
 });
 // phones: the jump button (pointerdown so it works while the other thumb steers)
@@ -280,8 +326,32 @@ function tickQuiz(now) {
 pickBtn.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   e.stopPropagation();
-  openGift();
+  interact();
 });
+pickBtn.addEventListener('click', (e) => { if (e.detail === 0) interact(); });
+closeLeaderButton.addEventListener('click', closeLeader);
+
+function leaderInReach() {
+  if (!leaderAvatar || !me || quiz || (phase !== 'waiting' && phase !== 'playing') || !guideEl.hidden) return false;
+  const { x, y, z } = player.position;
+  return Math.hypot(x - leader.x, z - leader.z) <= leader.reach && y <= PICKUP_HEIGHT &&
+    lineOfSight([x, y + 1.2, z], [leader.x, 1.2, leader.z]);
+}
+
+function interact() {
+  if (phase === 'opening' || !leaderDialog.hidden || !guideEl.hidden) return;
+  if (!leaderInReach()) { openGift(); return; }
+  play('click');
+  leaderDialog.hidden = false;
+  closeLeaderButton.focus();
+}
+
+function closeLeader() {
+  leaderDialog.hidden = true;
+  pickBtn.hidden = false;
+  pickBtn.focus();
+}
+
 function openGift() {
   if (nearId === null || quiz) return;
   const id = nearId;
@@ -325,14 +395,19 @@ showMute();
 // returning players skip the join tap, so the first touch anywhere starts the music
 addEventListener('pointerdown', () => { if (me) startAmbient(); });
 
+function restorePlayer(res) {
+  treasures.setLayout(res.treasures ?? []);
+  if (!res.treasures?.length) closeQuiz();
+  for (const id of res.tried ?? []) treasures.markTried(id);
+  setScore(res.score);
+  player.position.set(res.x, res.y ?? 0, res.z);
+}
+
 function enter(res) {
   me = { id: res.id, name: res.name };
-  treasures.setLayout(res.treasures ?? []);
-  for (const id of res.tried ?? []) treasures.markTried(id);
+  restorePlayer(res);
   if (!myAvatar) { myAvatar = createAvatar(variantFor(res.id)); player.add(myAvatar.root); }
-  setScore(res.score);
   scoreEl.hidden = false;
-  player.position.set(res.x, res.y ?? 0, res.z);
   player.visible = true;
   joinForm.hidden = true;
   document.body.classList.remove('lobby');

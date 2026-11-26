@@ -3,7 +3,7 @@ import QRCode from 'qrcode';
 import { mmss } from './format.js';
 
 const $ = (id) => document.getElementById(id);
-const PHASE = { waiting: '입장 중 · 곧 시작해요', playing: '보물을 찾는 중', ended: '게임 종료' };
+const PHASE = { waiting: '입장 중 · 곧 시작해요', opening: '시작 연출 중', playing: '보물을 찾는 중', ended: '게임 종료' };
 const token = new URLSearchParams(location.search).get('token');
 const socket = io();
 
@@ -80,7 +80,9 @@ function renderRanking(list, ended) {
 
 socket.on('world:state', (s) => {
   $('timer').textContent = mmss(s.remainingMs);
-  $('phase').textContent = PHASE[s.phase];
+  $('phase').textContent = s.phase === 'opening'
+    ? `출발까지 ${Math.ceil(s.openingRemainingMs / 1000)}초`
+    : PHASE[s.phase];
   $('phase').className = 'ribbon ' + s.phase;
   $('sign').classList.toggle('urgent', s.phase === 'playing' && s.remainingMs <= 60_000);
   $('count').textContent = `${s.players.length}명 접속 중 · 휴대폰으로 접속하세요`;

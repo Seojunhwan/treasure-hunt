@@ -34,7 +34,7 @@ function bot(i) {
       if (Math.random() < 0.05) dir += (Math.random() - 0.5) * 2;
       const step = (MOVE_SPEED * TICK_MS) / 1000;
       let p = resolveCollision(pos.x + Math.sin(dir) * step, pos.z + Math.cos(dir) * step, PLAYER_RADIUS);
-      if (phase === 'waiting') p = clampToCircle(p.x, p.z, SPAWN);
+      if (phase === 'waiting' || phase === 'opening') p = clampToCircle(p.x, p.z, SPAWN);
       if (Math.abs(p.x - pos.x) + Math.abs(p.z - pos.z) < step * 0.5) dir += Math.PI / 2; // blocked: turn
       pos = p;
       s.volatile.emit('player:move', { x: p.x, z: p.z, ry: dir });

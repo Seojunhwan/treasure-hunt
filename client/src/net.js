@@ -8,7 +8,7 @@ function load() {
 }
 
 // Wraps the socket. Remembers the token so a refresh or a locked phone rejoins as the same player.
-export function connect({ onStatus, onState, onCorrect, onFound, onTreasures }) {
+export function connect({ onStatus, onState, onCorrect, onFound, onTreasures, onRejoin }) {
   const socket = io();
   let session = load();
   let joined = false;
@@ -27,7 +27,9 @@ export function connect({ onStatus, onState, onCorrect, onFound, onTreasures }) 
   socket.on('connect', () => {
     onStatus();
     socket.io.engine.once('upgrade', onStatus);
-    if (joined) emitJoin(session.name); // reconnect after a drop
+    if (joined) emitJoin(session.name).then((res) => {
+      if (!res.error) onRejoin?.(res);
+    });
   });
   socket.on('disconnect', onStatus);
   socket.on('world:state', onState);
