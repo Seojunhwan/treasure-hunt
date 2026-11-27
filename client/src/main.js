@@ -120,7 +120,21 @@ function deskInView(pos) {
   return best;
 }
 const post = createPost(renderer, scene, view.camera);
-const controls = createControls(renderer.domElement);
+const freeLookBtn = document.getElementById('free-look');
+const freeLookHint = freeLookBtn.querySelector('span');
+function canFreeLook() {
+  return !!me && (phase === 'waiting' || phase === 'playing') &&
+    guideEl.hidden && leaderDialog.hidden && !quiz && !camOverride;
+}
+const controls = createControls(renderer.domElement, {
+  canFreeLook,
+  onFreeLookChange(active) {
+    freeLookBtn.setAttribute('aria-pressed', String(active));
+    freeLookHint.hidden = !active;
+  },
+  onFreeLookError() { toast('자유 시점을 켤 수 없어요. 화면을 드래그해 주세요.'); },
+});
+freeLookBtn.addEventListener('click', controls.toggleFreeLook);
 if (isDesktop) document.body.classList.add('desktop'); // shows key hints (F, 1-5), hides phone-only copy
 let me = null; // { id, name } once joined
 let phase = 'waiting';
@@ -161,6 +175,9 @@ renderer.setAnimationLoop((now) => {
   }
   const dt = Math.min((now - prev) / 1000, 0.1); // cap avoids a huge jump after the tab was backgrounded
   prev = now;
+  const showFreeLook = controls.freeLookAvailable && canFreeLook();
+  if (freeLookBtn.hidden === showFreeLook) freeLookBtn.hidden = !showFreeLook;
+  if (!showFreeLook) controls.exitFreeLook();
   const look = controls.takeLook();
   const openingActive = opening && me && phase === 'opening';
   const openingFocus = openingActive ? opening.update(now) : 0;

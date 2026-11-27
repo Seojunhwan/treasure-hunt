@@ -55,6 +55,10 @@
       background: radial-gradient(circle at 35% 30%, #3d6b55, var(--pine) 60%, #10241b); box-shadow: inset 0 -2px 0 rgba(0,0,0,.3), 0 2px 6px rgba(0,0,0,.4); color: var(--gold); }
     #mute svg { width: 20px; height: 20px; }
     #mute .off { display: none; } #mute.muted .on { display: none; } #mute.muted .off { display: block; }
+    #free-look { position: fixed; z-index: 2; top: calc(var(--top) + 50px); right: var(--right);
+      min-height: 36px; padding: 6px 12px; border: 1px solid var(--paper-edge); border-radius: 8px;
+      color: var(--ink); background: var(--paper); font: 15px var(--display); cursor: pointer; }
+    #free-look[aria-pressed="true"] { background: var(--gold); }
 
     /* --- moments: ribbon toast --- */
     #toast { position: fixed; top: 34%; left: 50%; transform: translateX(-50%); padding: 10px 40px; background: var(--red); color: var(--paper); font-size: 22px; white-space: nowrap; pointer-events: none;
@@ -182,6 +186,7 @@
     <svg class="on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     <svg class="off" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16.5 9.5l5 5m0-5l-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
   </button>
+  <button id="free-look" type="button" aria-pressed="false" hidden>자유 시점<span hidden> · Esc로 해제</span></button>
   <div id="glow" aria-hidden="true"></div>
   <div id="toast" role="status" hidden></div>
   <button id="jump" type="button" aria-label="점프"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l7 8h-4.5v8h-5v-8H5z" fill="currentColor"/></svg>점프</button>
@@ -218,7 +223,7 @@
         <section data-note-guide hidden><h3>응모권 모으기</h3><p>사무실과 라운지를 둘러보며 응모권을 모으세요. 공유 응모권은 먼저 찾은 한 사람이, 개인 응모권은 참가자마다 한 번씩 얻을 수 있어요.</p></section>
         <section><h3>이동</h3>
           <p class="m">화면 왼쪽을 누른 채 끌면 조이스틱이에요. 끝까지 밀면 달려요. 화면 오른쪽을 끌면 시점이 돌아가요. 오른쪽 아래 <b>점프</b> 버튼으로 뛰어올라요.</p>
-          <p class="d"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 또는 방향키로 이동, <kbd>Space</kbd>로 점프, 마우스로 화면을 끌면 시점이 돌아가요.</p></section>
+          <p class="d"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 또는 방향키로 이동하고 <kbd>Space</kbd>로 점프해요. 화면을 드래그해 둘러보세요. <b>자유 시점</b>을 켜면 마우스만 움직여도 시야가 돌아가요. <kbd>Esc</kbd>로 해제해요.</p></section>
         <section data-quiz-guide><h3>선물 열기</h3>
           <p class="m">선물 가까이 가면 오른쪽 아래에 <b>열기</b> 버튼이 나와요.</p>
           <p class="d">선물 가까이 가서 <kbd>F</kbd>를 누르세요.</p>
