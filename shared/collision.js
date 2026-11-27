@@ -108,3 +108,13 @@ export function lineOfSight(a, b, boxes = COLLIDERS) {
   if (len < 1e-6) return true;
   return rayCast(a, d.map((v) => v / len), len, boxes) >= len - 1e-6;
 }
+
+export function treasureTarget({ x, y, z, kind }) {
+  return [x, y + (kind === 'note' ? 0.025 : 0.4), z];
+}
+
+export function treasureInSight(origin, treasure) {
+  const target = treasureTarget(treasure);
+  const { cover } = treasure;
+  return lineOfSight(origin, target) && (!cover || lineOfSight(origin, target, [cover]));
+}

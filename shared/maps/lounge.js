@@ -37,8 +37,8 @@ export function buildLoungeLayout(floor) {
   const diningChairs = diningRows.flatMap((z) =>
     [-1, 1].flatMap((side) => [-1.29, -0.43, 0.43, 1.29].map((offset) =>
       object('chairModernCushion', diningX + offset, z + side * 1.28, 0.52, 0.56, 0.85, side < 0 ? 0 : 2))));
-  const tablePlants = [[0, 'plantSmall1'], [2, 'plantSmall3']].map(([index, name]) =>
-    object(name, diningX + 0.50, diningRows[index] - 0.14, 0.22, 0.22, 0.32, 0, diningTables[index].h, false));
+  const tablePlants = [[0, 'plantSmall1', 0.5], [2, 'plantSmall3', -1.2]].map(([index, name, offset]) =>
+    object(name, diningX + offset, diningRows[index] - 0.14, 0.22, 0.22, 0.32, 0, diningTables[index].h, false));
 
   const cafeService = [5, 31.4].map((z) => ({
     napkins: object('kitchenBar', -19.4, z, 0.92, 1.55, 0.98, 1),
@@ -114,8 +114,24 @@ export function buildLoungeLayout(floor) {
     { ...point(18.4, 29.5), y: 0 },
     { ...point(-10, 48), y: 0 },
   ];
+  const pickupTreasures = [
+    { ...point(-3.6, 5.7), y: 0 }, // beside the entrance pillar
+    { ...point(diningX + 0.9, diningRows[1]), y: diningTables[1].h },
+    { ...point(5.25, 20.3), y: bottom.y + 0.62 },
+    { ...point(-5.25, 33), y: bottom.y }, // behind the sofa
+    { ...point(-16.5, 16.4), y: cafeCounters[0].h },
+    { ...point(11.8, 49.6), y: 0 }, // shop corner, beyond the banner wall
+  ];
+  const [firstTable] = diningTables;
+  const [, hidingPlant] = tablePlants;
+  const [, secondCooker] = ramenCounter;
+  const noteTreasures = [
+    { x: firstTable.x - 1.35, y: firstTable.h, z: firstTable.z - 0.17 },
+    { x: hidingPlant.x, y: hidingPlant.y, z: hidingPlant.z + 0.17, cover: hidingPlant },
+    { x: secondCooker.x + 0.58, y: secondCooker.h, z: secondCooker.z - 0.29 },
+  ];
   return {
-    floors, pit, bottom, mirrorPillar, shopWall, featureSolids, furniture, treasures,
+    floors, pit, bottom, mirrorPillar, shopWall, featureSolids, furniture, treasures, pickupTreasures, noteTreasures,
     front, diningTables, shelves, ramenCounter, cafeService, cafeCounters, borderPlants, stairSeats,
   };
 }

@@ -173,6 +173,7 @@
   <div id="status" role="status"><i class="dot"></i><span class="name">연결 중…</span><span class="net"></span></div>
   <div id="score" hidden aria-label="찾은 보물">
     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="9" width="18" height="12" rx="1.5" fill="#b8283c"/><rect x="2" y="7" width="20" height="4" rx="1" fill="#d23a4f"/><rect x="10.5" y="7" width="3" height="14" fill="#f2c14e"/><path d="M12 7c-1.5-3-5-3.5-5-1.3S10 7 12 7zm0 0c1.5-3 5-3.5 5-1.3S14 7 12 7z" fill="none" stroke="#f2c14e" stroke-width="1.6"/></svg>
+    <span id="score-label" hidden>응모권</span>
     <b>0</b>
   </div>
   <div id="fps" aria-hidden="true"></div>
@@ -212,17 +213,27 @@
     <div class="card">
       <div class="title">게임 방법</div>
       <div class="tiles">
-        <section><h3>목표</h3><p>사무실 곳곳에 숨은 선물 상자를 찾아 퀴즈를 맞히세요. 선물을 가장 많이 모은 사람이 우승이에요.</p></section>
+        <section data-quiz-guide><h3>목표</h3><p>사무실 곳곳에 숨은 선물 상자를 찾아 퀴즈를 맞히세요. 선물을 가장 많이 모은 사람이 우승이에요.</p></section>
+        <section data-pickup-guide hidden><h3>목표</h3><p>사무실과 라운지에 숨은 선물 상자를 찾아 모으세요. 같은 선물은 각자 한 번씩 주울 수 있어요.</p></section>
+        <section data-note-guide hidden><h3>응모권 모으기</h3><p>사무실과 라운지를 둘러보며 응모권을 모으세요. 공유 응모권은 먼저 찾은 한 사람이, 개인 응모권은 참가자마다 한 번씩 얻을 수 있어요.</p></section>
         <section><h3>이동</h3>
           <p class="m">화면 왼쪽을 누른 채 끌면 조이스틱이에요. 끝까지 밀면 달려요. 화면 오른쪽을 끌면 시점이 돌아가요. 오른쪽 아래 <b>점프</b> 버튼으로 뛰어올라요.</p>
           <p class="d"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 또는 방향키로 이동, <kbd>Space</kbd>로 점프, 마우스로 화면을 끌면 시점이 돌아가요.</p></section>
-        <section><h3>선물 열기</h3>
+        <section data-quiz-guide><h3>선물 열기</h3>
           <p class="m">선물 가까이 가면 오른쪽 아래에 <b>열기</b> 버튼이 나와요.</p>
           <p class="d">선물 가까이 가서 <kbd>F</kbd>를 누르세요.</p>
           <p>업무석 사이와 오른쪽 복도를 살펴보세요. 벽 너머로는 열 수 없어요.</p></section>
-        <section><h3>퀴즈</h3><p>선물마다 문제가 하나씩 있어요. 20초 안에 <span class="m">보기를 누르세요.</span><span class="d">보기를 클릭하거나 숫자 <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>…를 누르세요.</span> 푸는 동안 캐릭터는 멈춰요.</p></section>
-        <section><h3>정답과 오답</h3><p>가장 먼저 맞힌 사람이 선물을 가져가요. 틀리거나 시간이 지나면 그 선물은 나만 다시 열 수 없어요. 다른 사람은 도전할 수 있어요.</p></section>
-        <section><h3>마지막 3분 힌트</h3><p>아직 남은 선물에 가까워질수록 삑삑 소리가 빨라지고 화면 가장자리가 빛나요.</p></section>
+        <section data-quiz-guide><h3>퀴즈</h3><p>선물마다 문제가 하나씩 있어요. 20초 안에 <span class="m">보기를 누르세요.</span><span class="d">보기를 클릭하거나 숫자 <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>…를 누르세요.</span> 푸는 동안 캐릭터는 멈춰요.</p></section>
+        <section data-quiz-guide><h3>정답과 오답</h3><p>가장 먼저 맞힌 사람이 선물을 가져가요. 틀리거나 시간이 지나면 그 선물은 나만 다시 열 수 없어요. 다른 사람은 도전할 수 있어요.</p></section>
+        <section data-pickup-guide hidden><h3>선물 줍기</h3>
+          <p class="m">선물 가까이 가서 <b>줍기</b> 버튼을 누르세요.</p>
+          <p class="d">선물 가까이 가서 <kbd>F</kbd>를 누르세요.</p>
+          <p>업무석 사이와 라운지 가구 주변을 둘러보세요.</p></section>
+        <section data-note-guide hidden><h3>살펴보기</h3>
+          <p class="m">쪽지를 가까이서 바라보면 <b>살펴보기</b> 버튼이 나와요.</p>
+          <p class="d">쪽지를 가까이서 바라보고 <kbd>F</kbd>를 누르세요.</p>
+        </section>
+        <section data-hunt-hint><h3>마지막 3분 힌트</h3><p>아직 남은 선물에 가까워질수록 삑삑 소리가 빨라지고 화면 가장자리가 빛나요.</p></section>
       </div>
       <button class="close" type="button">알겠어요</button>
     </div>

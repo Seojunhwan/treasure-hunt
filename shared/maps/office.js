@@ -234,3 +234,31 @@ export const TREASURE_SPOTS = [
   ...officeTreasures,
   ...lounge.treasures,
 ].map((spot) => ({ ...scaledPoint(spot), y: spot.y * OFFICE_SCALE }));
+
+export const GIFT_TREASURE_SPOTS = [
+  { x: officeCorridor.x - 0.5, z: 14.5, y: 0 },
+  { x: airPurifiers.at(-1).x + 1.5, z: airPurifiers.at(-1).z + 1.1, y: 0 },
+  { x: -3.4, z: -3.0, y: 0 },
+  { x: -14.8, z: -10.4, y: 0 },
+  { x: 7.9, z: -14.5, y: 0 },
+  { x: -16.41, z: 18.25, y: 1.0 }, // on the low shelf near the boxes
+  ...lounge.pickupTreasures,
+].map(({ x, y, z }) => ({ ...scaledPoint({ x, z }), y: y * OFFICE_SCALE }));
+
+export const NOTE_TREASURE_SPOTS = lounge.noteTreasures.map(({ x, y, z, cover }) => ({
+  ...scaledPoint({ x, z }), y: y * OFFICE_SCALE, kind: 'note',
+  ...(cover ? { cover: scaledSolid(cover) } : {}),
+}));
+
+// The active office playtest layout.
+const extraTicketSpots = [
+  [-15.1, -20], [-5.6, -13], [13.4, -12],
+  [-2.5, 5], [8.3, 5], [-11, 17.5],
+].map(([x, z]) => ({ ...scaledPoint({ x, z }), y: 0 }));
+const [personalNote, ...loungeSharedNotes] = NOTE_TREASURE_SPOTS;
+export const PICKUP_TREASURE_SPOTS = [
+  personalNote,
+  ...[...loungeSharedNotes, ...GIFT_TREASURE_SPOTS, ...extraTicketSpots].map((spot) => ({
+    ...spot, kind: 'note', shared: true,
+  })),
+];

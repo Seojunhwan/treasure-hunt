@@ -58,6 +58,9 @@
     .n { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .s { color: var(--red); font-variant-numeric: tabular-nums; }
     #empty { font: 1.6vw var(--display); color: #8a7760; margin: 2vh 0; }
+    #rank.ticket-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1.6vw; max-height: 68vh; overflow-y: auto; }
+    .ticket-list li { min-width: 0; font-size: clamp(14px, 1.45vw, 26px); padding: .65vh .3vw; }
+    .ticket-list .s { flex: none; }
     #error { position: relative; z-index: 1; margin: 20vh auto; max-width: 60vw; text-align: center; font-size: 2vw; color: #ffb4b4; }
 
     /* final: podium */
@@ -100,7 +103,7 @@
       <p id="qcount"></p>
     </section>
     <section class="board">
-      <h2>순위</h2>
+      <h2 id="board-title">순위</h2>
       <div id="left"></div>
       <ol id="rank"></ol>
       <p id="empty">보물을 찾으면 여기에 이름이 올라가요</p>

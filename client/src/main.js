@@ -16,8 +16,12 @@ import { connect } from './net.js';
 import { showBanner, goFullscreen } from './install.js';
 import { mmss } from './format.js';
 import { MOVE_SPEED, PLAYER_RADIUS, PICKUP_RADIUS, PICKUP_HEIGHT, HINT_SECONDS, JUMP_SPEED, QUIZ_SECONDS } from '../../shared/constants.js';
-import { resolveCollision, clampToCircle, verticalStep, lineOfSight } from '../../shared/collision.js';
-import { SPAWN, INTERIORS, MAP_THEME } from '../../shared/map.js';
+import { resolveCollision, clampToCircle, verticalStep, lineOfSight, treasureInSight, treasureTarget } from '../../shared/collision.js';
+import * as map from '../../shared/map.js';
+
+const { SPAWN, INTERIORS, MAP_THEME } = map;
+const personalGifts = !!map.PICKUP_TREASURE_SPOTS;
+const noteHunt = map.PICKUP_TREASURE_SPOTS?.some(({ kind }) => kind === 'note') ?? false;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); // full retina res costs too much fps on mid-range phones
@@ -29,7 +33,8 @@ buildWorld(scene); // async: furniture pops in as it loads
 
 const LEADER_SCALE = 1.5;
 const leader = {
-  name: 'zinga.k', line: '가운데 복도에서 공기청정기 옆 책상을 살펴봐요.',
+  name: 'zinga.k',
+  line: noteHunt ? '라운지에 쪽지를 숨겨 뒀어요. 식탁 위부터 살펴봐요.' : '가운데 복도에서 공기청정기 옆 책상을 살펴봐요.',
   variant: 'male-f',
   x: SPAWN.x + 0.9, z: SPAWN.z - 2.7, reach: 3.2,
 };
@@ -56,7 +61,7 @@ scene.add(player);
 let myAvatar = null;
 const fx = createFx(scene);
 const others = createRemotePlayers(scene, fx);
-const treasures = createTreasures(scene, fx);
+const treasures = createTreasures(scene, fx, personalGifts);
 let stepCount = 0;
 const props = createProps(scene, (strength) => play('bump', { volume: 0.25 + strength * 0.5, rate: 0.85 + Math.random() * 0.3 }));
 let lastX = 0, lastZ = 0;
@@ -69,6 +74,17 @@ let fp = 0; // 0 third person … 1 first person (inside houses)
 const indoors = (x, z) => INTERIORS.some((b) => Math.abs(x - b.x) < b.w / 2 && Math.abs(z - b.z) < b.d / 2);
 
 const view = createFollowCamera();
+const projectedTarget = new THREE.Vector3();
+function projectTarget(target) {
+  projectedTarget.fromArray(target).project(view.camera);
+  return Math.abs(projectedTarget.x) < 0.9 && Math.abs(projectedTarget.y) < 0.9 &&
+    projectedTarget.z >= -1 && projectedTarget.z <= 1;
+}
+function noteOnScreen(treasure) {
+  const { camera } = view;
+  camera.updateMatrixWorld();
+  return projectTarget(treasureTarget(treasure)) && treasureInSight(camera.position.toArray(), treasure);
+}
 const post = createPost(renderer, scene, view.camera);
 const controls = createControls(renderer.domElement);
 if (isDesktop) document.body.classList.add('desktop'); // shows key hints (F, 1-5), hides phone-only copy
@@ -149,21 +165,6 @@ renderer.setAnimationLoop((now) => {
   fx.update(dt);
   if (me) myTrail(player.position.x, player.position.y, player.position.z, player.rotation.y, grounded ? Math.hypot(m.x, m.y) * MOVE_SPEED : 0);
   const pos = player.position;
-  const near = me && phase === 'playing' && !quiz ? treasures.nearest(pos.x, pos.z) : null;
-  // show at PICKUP_RADIUS, keep showing a little past it (server allows PICKUP_TOLERANCE) so a moving thumb still lands
-  const reach = pickBtn.hidden ? PICKUP_RADIUS : PICKUP_RADIUS + 0.4;
-  const canPick = !!near && near.dist <= reach && Math.abs(near.y - pos.y) <= PICKUP_HEIGHT &&
-    lineOfSight([pos.x, pos.y + 1.2, pos.z], [near.x, near.y + 0.4, near.z]);
-  const canTalk = leaderInReach();
-  if (!canTalk) leaderDialog.hidden = true;
-  if (pickBtn.classList.contains('talk') !== canTalk) {
-    pickBtn.classList.toggle('talk', canTalk);
-    pickBtn.querySelector('span').textContent = canTalk ? '말 걸기' : '열기';
-  }
-  const showAction = leaderDialog.hidden && (canTalk || canPick);
-  if (pickBtn.hidden === showAction) pickBtn.hidden = !showAction;
-  nearId = canPick ? near.id : null;
-  hint.update(now, near && remaining <= HINT_SECONDS * 1000 ? near.dist : null);
   if (camOverride) { view.camera.position.set(...camOverride.pos); view.camera.lookAt(...camOverride.look); }
   else {
     fp += ((me && indoors(pos.x, pos.z) ? 1 : 0) - fp) * (1 - Math.exp(-dt * 5));
@@ -171,6 +172,19 @@ renderer.setAnimationLoop((now) => {
     if (openingFocus) opening.blendCamera(view.camera, openingFocus);
     if (myAvatar) myAvatar.root.visible = openingFocus < 0.95 && camDist > 0.9;
   }
+  const near = me && phase === 'playing' && !quiz ? treasures.nearest(pos.x, pos.z) : null;
+  // show at PICKUP_RADIUS, keep showing a little past it (server allows PICKUP_TOLERANCE) so a moving thumb still lands
+  const reach = pickBtn.hidden ? PICKUP_RADIUS : PICKUP_RADIUS + 0.4;
+  const canPick = !!near && near.dist <= reach && Math.abs(near.y - pos.y) <= PICKUP_HEIGHT &&
+    treasureInSight([pos.x, pos.y + 1.2, pos.z], near) &&
+    (near.kind !== 'note' || noteOnScreen(near));
+  nearbyLeader = !(noteHunt && canPick) && leaderInReach();
+  nearId = canPick ? near.id : null;
+  const label = nearbyLeader ? '말 걸기' : near?.kind === 'note' ? '살펴보기' : giftAction;
+  if (pickLabel.textContent !== label) pickLabel.textContent = label;
+  pickBtn.classList.toggle('talk', !!nearbyLeader);
+  pickBtn.hidden = !leaderDialog.hidden || !guideEl.hidden || !(nearbyLeader || canPick);
+  hint.update(now, !noteHunt && near && remaining <= HINT_SECONDS * 1000 ? near.dist : null);
   atmosphere.update(dt, view.camera);
   post.render(now);
 });
@@ -205,12 +219,15 @@ const net = connect({
     if (state.phase !== phase) hudMsg.textContent = PHASE_MSG[state.phase];
     if (state.phase === 'ended' && me) showResult(state.ranking);
     else resultEl.hidden = true;
-    if (state.phase === 'playing' && remaining > HINT_SECONDS * 1000 && state.remainingMs <= HINT_SECONDS * 1000) {
+    if (!noteHunt && state.phase === 'playing' && remaining > HINT_SECONDS * 1000 && state.remainingMs <= HINT_SECONDS * 1000) {
       toast('힌트 시작! 가까울수록 소리가 빨라져요', 'gold');
       play('hint');
     }
     if (me && (phase === 'opening' || (!opening && phase === 'waiting')) && state.phase === 'playing') { toast('출발! 보물을 찾아라'); guide(false); play('start'); }
-    if (me && phase === 'playing' && state.phase === 'ended') play('end');
+    if (me && phase === 'playing' && state.phase === 'ended') {
+      leaderDialog.hidden = true;
+      play('end');
+    }
     phase = state.phase;
     guideBtn.hidden = !me || phase !== 'waiting';
     if (me && phase === 'waiting' && !guideShown) { guideShown = true; guide(true); }
@@ -222,15 +239,33 @@ const net = connect({
   },
   onCorrect: ({ x, z }) => { player.position.x = x; player.position.z = z; },
   onFound: (playerId, treasureId) => { others.pickUp(playerId); treasures.collect(treasureId); if (quiz?.id === treasureId) closeQuiz('taken'); },
-  onTreasures: (list) => { treasures.setLayout(list); if (!list.length) closeQuiz(); },
+  onTreasures: (list) => {
+    treasures.setLayout(list);
+    if (!list.length) {
+      pendingAction = null;
+      leaderDialog.hidden = true;
+      noteEl.hidden = true;
+      setScore(0);
+      closeQuiz();
+    }
+  },
 });
 
 const pickBtn = document.getElementById('pickup');
+const pickLabel = pickBtn.querySelector('span');
+const giftAction = personalGifts ? '줍기' : '열기';
+pickLabel.textContent = giftAction;
 const scoreEl = document.getElementById('score');
+if (noteHunt) {
+  scoreEl.setAttribute('aria-label', '내 응모권');
+  document.getElementById('score-label').hidden = false;
+  document.querySelector('#result .sub').hidden = true;
+}
 const toastEl = document.getElementById('toast');
 let nearId = null, toastTimer = 0;
+let pendingAction = null, nearbyLeader = false;
 let vy = 0, grounded = true, jumpAsked = false; // vertical motion of my player
-const setScore = (n) => { scoreEl.querySelector('b').textContent = n; };
+const setScore = (n) => { scoreEl.querySelector('b').textContent = noteHunt ? `${n}장` : n; };
 function toast(text, tone = '') {
   toastEl.textContent = text;
   toastEl.className = tone;
@@ -340,7 +375,7 @@ function leaderInReach() {
 
 function interact() {
   if (phase === 'opening' || !leaderDialog.hidden || !guideEl.hidden) return;
-  if (!leaderInReach()) { openGift(); return; }
+  if (!nearbyLeader) { openGift(); return; }
   play('click');
   leaderDialog.hidden = false;
   closeLeaderButton.focus();
@@ -352,11 +387,48 @@ function closeLeader() {
   pickBtn.focus();
 }
 
+function requestNearbyAction(event, id, onResult) {
+  if (pendingAction || phase !== 'playing' || !net.socket.connected) return;
+  const request = {};
+  pendingAction = request;
+  const { x, y, z } = player.position;
+  net.socket.timeout(3000).emit(event, { id, x, y, z }, (err, res) => {
+    if (pendingAction !== request) return;
+    pendingAction = null;
+    if (err) toast('연결을 확인하고 다시 눌러 주세요');
+    else if (res.result === 'far') toast('조금 더 가까이 가세요');
+    else onResult(res);
+  });
+}
+
+function celebratePickup(score) {
+  myAvatar?.pickUp();
+  setScore(score);
+  play('pickup');
+}
+
 function openGift() {
-  if (nearId === null || quiz) return;
+  if (nearId === null || quiz || phase !== 'playing' || !net.socket.connected) return;
   const id = nearId;
+  const { x, y, z } = player.position;
+  if (personalGifts) {
+    requestNearbyAction('treasure:open', id, (res) => {
+      if (res.result === 'ok') {
+        treasures.collect(id);
+        celebratePickup(res.score);
+        toast(noteHunt ? `${res.shared ? '공유' : '개인'} 응모권 +1장` : `보물 ${res.score}개째!`, 'gold');
+      } else if (res.result === 'collected') {
+        treasures.setFound([id]);
+        setScore(res.score);
+      } else if (res.result === 'taken') {
+        treasures.setFound([id]);
+        toast('다른 참가자가 먼저 가져갔어요');
+      }
+    });
+    return;
+  }
   play('click');
-  net.socket.emit('treasure:open', { id, x: player.position.x, y: player.position.y, z: player.position.z }, (res) => {
+  net.socket.emit('treasure:open', { id, x, y, z }, (res) => {
     if (res.result === 'quiz') openQuiz(id, res.question, res.choices, res.remainingMs);
     else if (res.result === 'taken') { play('taken'); toast('앗, 한발 늦었어요'); }
     else if (res.result === 'tried') { treasures.markTried(id); toast('이미 도전한 선물이에요'); }
@@ -367,6 +439,14 @@ function openGift() {
 // how-to-play card: opens once on joining before the start, reopens from the ? button while waiting
 const guideEl = document.getElementById('guide');
 const guideBtn = document.getElementById('guide-btn');
+if (personalGifts) {
+  for (const section of guideEl.querySelectorAll('[data-quiz-guide]')) section.hidden = true;
+  for (const section of guideEl.querySelectorAll('[data-pickup-guide]')) section.hidden = false;
+}
+if (noteHunt) {
+  for (const section of guideEl.querySelectorAll('[data-pickup-guide], [data-hunt-hint]')) section.hidden = true;
+  for (const section of guideEl.querySelectorAll('[data-note-guide]')) section.hidden = false;
+}
 let guideShown = false;
 function guide(open) {
   guideEl.hidden = !open;
@@ -378,7 +458,8 @@ guideBtn.addEventListener('click', () => guide(true));
 const resultEl = document.getElementById('result');
 function showResult(ranking) {
   const mine = ranking.find((r) => r.id === me.id);
-  const text = mine ? `${mine.rank}|보물 ${mine.score}개` : '|이번엔 보물을 못 찾았어요';
+  const text = noteHunt ? `|내 응모권 ${mine?.score ?? 0}장`
+    : mine ? `${mine.rank}|보물 ${mine.score}개` : '|이번엔 보물을 못 찾았어요';
   if (resultEl.hidden || resultEl.dataset.text !== text) {
     resultEl.dataset.text = text;
     const [rank, line] = text.split('|');
@@ -396,7 +477,9 @@ showMute();
 addEventListener('pointerdown', () => { if (me) startAmbient(); });
 
 function restorePlayer(res) {
+  pendingAction = null;
   treasures.setLayout(res.treasures ?? []);
+  treasures.setFound(res.collected ?? []);
   if (!res.treasures?.length) closeQuiz();
   for (const id of res.tried ?? []) treasures.markTried(id);
   setScore(res.score);

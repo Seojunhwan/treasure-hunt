@@ -1,11 +1,12 @@
 import { test, expect } from 'vitest';
-import { createGame as create, join, move, snapshot, start, reset, tick, remainingMs, isAdminToken, openTreasure, answerTreasure, ranking, treasureLayout } from '../server/game.js';
-import { SPAWN, TREASURE_SPOTS } from '../shared/map.js';
+import { createGame as create, join, move, snapshot, start, reset, tick, remainingMs, isAdminToken, openTreasure, answerTreasure, ranking, treasureLayout, ticketTotals } from '../server/game.js';
+import * as map from '../shared/map.js';
 import { MIN_QUESTIONS } from '../shared/constants.js';
 import { validateQuestions } from '../server/questions.js';
 
 const T0 = 1_000_000;
 const MIN15 = 15 * 60 * 1000;
+const { SPAWN, TREASURE_SPOTS, PICKUP_TREASURE_SPOTS, NOTE_TREASURE_SPOTS } = map;
 const QS = (n = MIN_QUESTIONS) => Array.from({ length: n }, (_, i) => ({ id: 'q' + i, q: '문제 ' + i, choices: ['가', '나', '다'], answer: i % 3, explain: '설명 ' + i }));
 const createGame = (n) => create(MIN15, QS(n));
 
@@ -246,6 +247,60 @@ test('quiz: answering without opening is refused', () => {
   const g = playing();
   const p = join(g, { name: 'a' }, T0).player;
   expect(answerTreasure(g, p, 0, 0, T0).result).toBe('invalid');
+});
+
+test('personal gifts open after the intro, score once per player, and survive rejoin until reset', () => {
+  const spot = { x: SPAWN.x, y: 0, z: SPAWN.z };
+  const g = create(MIN15, [], 6500, [spot]);
+  const a = join(g, { name: 'a' }, T0).player, b = join(g, { name: 'b' }, T0).player;
+  expect(start(g, T0)).toEqual({ ok: true });
+  expect(treasureLayout(g)).toEqual([]);
+  expect(openTreasure(g, a, 0, T0 + 1000).result).toBe('invalid');
+  tick(g, T0 + 6500);
+  expect(treasureLayout(g)).toEqual([{ id: 0, ...spot }]);
+  Object.assign(a, { x: spot.x + 5, y: spot.y, z: spot.z });
+  expect(openTreasure(g, a, 0, T0 + 6600).result).toBe('far');
+  standOn(a, spot);
+  standOn(b, spot);
+  expect(openTreasure(g, a, 0, T0 + 6700)).toEqual({ result: 'ok', score: 1 });
+  expect(openTreasure(g, a, 0, T0 + 6800)).toEqual({ result: 'collected', score: 1 });
+  expect(openTreasure(g, b, 0, T0 + 6900)).toEqual({ result: 'ok', score: 1 });
+  expect(g.phase).toBe('playing');
+  expect(snapshot(g, T0 + 6900).found).toEqual([]);
+  const rejoined = join(g, { token: a.token }, T0 + 7000).player;
+  expect([...rejoined.collected]).toEqual([0]);
+  expect(openTreasure(g, a, 0, g.endsAt).result).toBe('invalid');
+  reset(g);
+  expect(a.collected.size).toBe(0);
+  expect(a.score).toBe(0);
+});
+
+test('a shared note issues one ticket while personal notes issue one per player; totals include zero and offline', () => {
+  const note = { x: SPAWN.x, y: 0, z: SPAWN.z, kind: 'note' };
+  const g = create(MIN15, [], 0, [{ ...note, shared: true }, note]);
+  const [a, b, c] = ['A', 'B', 'C'].map((name) => join(g, { name }, T0).player);
+  join(g, { name: 'Old player' }, T0).player.online = false;
+  for (const p of [a, b]) standOn(p, note);
+  start(g, T0);
+  expect(openTreasure(g, a, 0, T0 + 10)).toEqual({ result: 'ok', score: 1, shared: true });
+  expect(openTreasure(g, b, 0, T0 + 10).result).toBe('taken');
+  expect(openTreasure(g, a, 0, T0 + 10)).toEqual({ result: 'collected', score: 1 });
+  expect(openTreasure(g, a, 1, T0 + 20).result).toBe('ok');
+  expect(openTreasure(g, b, 1, T0 + 20).result).toBe('ok');
+  a.online = false;
+  c.online = false;
+  expect(snapshot(g, T0 + 100).found).toEqual([0]);
+  expect(ticketTotals(g)).toEqual([
+    { id: a.id, name: 'A', tickets: 2 }, { id: b.id, name: 'B', tickets: 1 }, { id: c.id, name: 'C', tickets: 0 },
+  ]);
+  reset(g);
+  expect(ticketTotals(g)).toEqual([{ id: b.id, name: 'B', tickets: 0 }]);
+});
+
+test.skipIf(!NOTE_TREASURE_SPOTS)('office ticket layout has twenty unique shared notes and one personal note', () => {
+  expect(PICKUP_TREASURE_SPOTS.filter(({ shared }) => shared)).toHaveLength(20);
+  expect(PICKUP_TREASURE_SPOTS.filter(({ shared }) => !shared)).toHaveLength(1);
+  expect(new Set(PICKUP_TREASURE_SPOTS.map(({ x, z }) => `${x},${z}`)).size).toBe(21);
 });
 
 test('ranking: score desc, tie goes to who got there first, zero scores hidden', () => {

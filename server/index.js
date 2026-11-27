@@ -4,11 +4,11 @@ import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { Server } from 'socket.io';
-import { createGame, join, move, snapshot, start, reset, tick, isAdminToken, openTreasure, answerTreasure, treasureLayout, setQuestions } from './game.js';
+import { createGame, join, move, snapshot, start, reset, tick, isAdminToken, openTreasure, answerTreasure, treasureLayout, setQuestions, ticketTotals } from './game.js';
 import { loadQuestions, saveQuestions, validateQuestions, MAX_QUESTIONS } from './questions.js';
 import { loadSettings, saveSettings, validateJoinUrl } from './settings.js';
 import { TICK_MS, GAME_SECONDS_DEFAULT, MIN_QUESTIONS, OPENING_MS } from '../shared/constants.js';
-import { MAP_THEME } from '../shared/map.js';
+import * as map from '../shared/map.js';
 
 const PORT = Number(process.env.PORT ?? 8080);
 const GAME_SECONDS = Number(process.env.GAME_SECONDS ?? GAME_SECONDS_DEFAULT);
@@ -55,8 +55,16 @@ if (process.env.NODE_ENV === 'production') {
   app.use(vite.middlewares);
 }
 
-const game = createGame(GAME_SECONDS * 1000, loadQuestions(), MAP_THEME === 'office' ? OPENING_MS : 0);
-const broadcast = () => io.to(['players', 'admins']).emit('world:state', snapshot(game, Date.now()));
+const game = createGame(GAME_SECONDS * 1000, loadQuestions(), map.MAP_THEME === 'office' ? OPENING_MS : 0, map.PICKUP_TREASURE_SPOTS);
+function broadcast() {
+  const state = snapshot(game, Date.now());
+  if (game.noteHunt) {
+    io.to('players').emit('world:state', state);
+    io.to('admins').emit('world:state', { ...state, ticketTotals: ticketTotals(game) });
+  } else {
+    io.to(['players', 'admins']).emit('world:state', state);
+  }
+}
 
 io.on('connection', (socket) => {
   let player = null;
@@ -71,7 +79,7 @@ io.on('connection', (socket) => {
     player.lastMoveAt = Date.now();
     socket.join('players');
     const { token, id, name, x, y, z, ry, score } = player;
-    ack({ token, id, name, x, y, z, ry, score, treasures: treasureLayout(game), tried: [...player.tried] });
+    ack({ token, id, name, x, y, z, ry, score, treasures: treasureLayout(game), tried: [...player.tried], collected: [...player.collected] });
   });
 
   socket.on('player:move', (msg) => {
@@ -84,7 +92,9 @@ io.on('connection', (socket) => {
     const now = Date.now();
     // the tap carries the freshest position; it still goes through the speed check
     if (Number.isFinite(msg?.x) && Number.isFinite(msg?.z)) move(game, player, { x: msg.x, z: msg.z, y: msg.y, ry: player.ry }, now);
-    ack(openTreasure(game, player, msg?.id, now));
+    const result = openTreasure(game, player, msg?.id, now);
+    ack(result);
+    if (result.shared) broadcast();
   });
 
   socket.on('treasure:answer', (msg, ack) => {
