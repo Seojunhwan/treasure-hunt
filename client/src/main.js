@@ -17,9 +17,10 @@ import { showBanner, goFullscreen } from './install.js';
 import { mmss } from './format.js';
 import { MOVE_SPEED, PLAYER_RADIUS, PICKUP_RADIUS, PICKUP_HEIGHT, HINT_SECONDS, JUMP_SPEED, QUIZ_SECONDS } from '../../shared/constants.js';
 import { resolveCollision, clampToCircle, verticalStep, lineOfSight, treasureInSight, treasureTarget } from '../../shared/collision.js';
+import { interactionInReach } from '../../shared/office-interactions.js';
 import * as map from '../../shared/map.js';
 
-const { SPAWN, INTERIORS, MAP_THEME } = map;
+const { SPAWN, INTERIORS, MAP_THEME, CDRAGON, DESK_INTERACTIONS = [] } = map;
 const personalGifts = !!map.PICKUP_TREASURE_SPOTS;
 const noteHunt = map.PICKUP_TREASURE_SPOTS?.some(({ kind }) => kind === 'note') ?? false;
 
@@ -40,16 +41,33 @@ const leader = {
 };
 const leaderDialog = document.getElementById('leader-dialog');
 const closeLeaderButton = leaderDialog.querySelector('button');
-document.querySelector('#leader-name span').textContent = leader.name;
-document.getElementById('leader-line').textContent = leader.line;
-const leaderAvatar = MAP_THEME === 'office' ? createAvatar(leader.variant, { scale: LEADER_SCALE }) : null;
-if (leaderAvatar) {
-  const label = makeLabel(`${leader.name} · 리더 NPC`);
+const speakerName = document.querySelector('#leader-name span');
+const speakerLine = document.getElementById('leader-line');
+
+function addLeader(npc) {
+  const avatar = createAvatar(npc.variant, { scale: LEADER_SCALE });
+  const label = makeLabel(`${npc.name} · 리더 NPC`);
   label.position.y *= LEADER_SCALE;
-  leaderAvatar.root.add(label);
-  leaderAvatar.root.position.set(leader.x, 0, leader.z);
-  leaderAvatar.root.rotation.y = Math.PI;
-  scene.add(leaderAvatar.root);
+  avatar.root.add(label);
+  avatar.root.position.set(npc.x, 0, npc.z);
+  avatar.root.rotation.y = Math.PI;
+  scene.add(avatar.root);
+  return avatar;
+}
+
+const leaderAvatar = MAP_THEME === 'office' ? addLeader(leader) : null;
+const cdragonAvatar = noteHunt && CDRAGON ? addLeader(CDRAGON) : null;
+if (noteHunt) {
+  const monitors = map.FURNITURE.filter(({ name }) => name === 'computerScreen');
+  for (const desk of DESK_INTERACTIONS) {
+    if (!desk.name) continue;
+    const monitor = monitors.find(({ x, z }) => x === desk.x && Math.abs(z - desk.z) < 0.9);
+    if (!monitor) continue;
+    const label = makeLabel(desk.name, { nameplate: true });
+    label.scale.set(1.08, 0.27, 1);
+    label.position.set(monitor.x, monitor.y + monitor.h + 0.16, monitor.z);
+    scene.add(label);
+  }
 }
 
 const opening = leaderAvatar ? createOpening(scene, leader, document.getElementById('opening-card')) : null;
@@ -84,6 +102,22 @@ function noteOnScreen(treasure) {
   const { camera } = view;
   camera.updateMatrixWorld();
   return projectTarget(treasureTarget(treasure)) && treasureInSight(camera.position.toArray(), treasure);
+}
+
+function deskInView(pos) {
+  if (!noteHunt || phase !== 'playing' || !me || !guideEl.hidden) return null;
+  const { camera } = view;
+  camera.updateMatrixWorld();
+  const eye = camera.position.toArray();
+  let best = null, bestDistance = Infinity;
+  for (const desk of DESK_INTERACTIONS) {
+    if (!interactionInReach(pos, desk)) continue;
+    const target = [desk.x, desk.y, desk.z];
+    if (!projectTarget(target) || !lineOfSight(eye, target)) continue;
+    const distance = Math.hypot(projectedTarget.x, projectedTarget.y);
+    if (distance < bestDistance) { best = desk; bestDistance = distance; }
+  }
+  return best;
 }
 const post = createPost(renderer, scene, view.camera);
 const controls = createControls(renderer.domElement);
@@ -136,6 +170,7 @@ renderer.setAnimationLoop((now) => {
   myAvatar?.setSpeed(Math.hypot(m.x, m.y) * MOVE_SPEED);
   myAvatar?.update(dt);
   leaderAvatar?.update(dt);
+  cdragonAvatar?.update(dt);
   if (m.x || m.y) {
     // camera-relative: forward points from camera toward player on the ground plane
     const yaw = openingFocus ? opening.movementYaw(view.yaw, openingFocus) : view.yaw;
@@ -178,12 +213,14 @@ renderer.setAnimationLoop((now) => {
   const canPick = !!near && near.dist <= reach && Math.abs(near.y - pos.y) <= PICKUP_HEIGHT &&
     treasureInSight([pos.x, pos.y + 1.2, pos.z], near) &&
     (near.kind !== 'note' || noteOnScreen(near));
-  nearbyLeader = !(noteHunt && canPick) && leaderInReach();
+  const canAskCdragon = noteHunt && CDRAGON && me && phase === 'playing' && interactionInReach(pos, CDRAGON);
+  nearbyLeader = noteHunt && canPick ? null : canAskCdragon ? CDRAGON : leaderInReach() ? leader : null;
+  nearbyDesk = nearbyLeader || canPick ? null : deskInView(pos);
   nearId = canPick ? near.id : null;
-  const label = nearbyLeader ? '말 걸기' : near?.kind === 'note' ? '살펴보기' : giftAction;
+  const label = nearbyLeader ? '말 걸기' : nearbyDesk || near?.kind === 'note' ? '살펴보기' : giftAction;
   if (pickLabel.textContent !== label) pickLabel.textContent = label;
   pickBtn.classList.toggle('talk', !!nearbyLeader);
-  pickBtn.hidden = !leaderDialog.hidden || !guideEl.hidden || !(nearbyLeader || canPick);
+  pickBtn.hidden = !leaderDialog.hidden || !guideEl.hidden || !(nearbyLeader || nearbyDesk || canPick);
   hint.update(now, !noteHunt && near && remaining <= HINT_SECONDS * 1000 ? near.dist : null);
   atmosphere.update(dt, view.camera);
   post.render(now);
@@ -263,7 +300,7 @@ if (noteHunt) {
 }
 const toastEl = document.getElementById('toast');
 let nearId = null, toastTimer = 0;
-let pendingAction = null, nearbyLeader = false;
+let pendingAction = null, nearbyDesk = null, nearbyLeader = null;
 let vy = 0, grounded = true, jumpAsked = false; // vertical motion of my player
 const setScore = (n) => { scoreEl.querySelector('b').textContent = noteHunt ? `${n}장` : n; };
 function toast(text, tone = '') {
@@ -375,8 +412,16 @@ function leaderInReach() {
 
 function interact() {
   if (phase === 'opening' || !leaderDialog.hidden || !guideEl.hidden) return;
-  if (!nearbyLeader) { openGift(); return; }
+  if (nearbyLeader === leader) showLeader(leader.name, leader.line);
+  else if (nearbyLeader === CDRAGON && CDRAGON) inspect(CDRAGON.id);
+  else if (nearId !== null) openGift();
+  else if (nearbyDesk) inspect(nearbyDesk.id);
+}
+
+function showLeader(name, line) {
   play('click');
+  speakerName.textContent = name;
+  speakerLine.textContent = line;
   leaderDialog.hidden = false;
   closeLeaderButton.focus();
 }
@@ -405,6 +450,22 @@ function celebratePickup(score) {
   myAvatar?.pickUp();
   setScore(score);
   play('pickup');
+}
+
+function inspect(id) {
+  requestNearbyAction('office:inspect', id, (res) => {
+    if (res.result === 'dialogue') showLeader(res.title, res.text);
+    else if (res.result === 'look') {
+      if (Number.isInteger(res.score)) setScore(res.score);
+      play('click');
+      note(res.title, res.text);
+    }
+    else if (res.result === 'reward') {
+      celebratePickup(res.score);
+      note(res.title, res.text);
+      toast('개인 응모권 +1장', 'gold');
+    }
+  });
 }
 
 function openGift() {

@@ -1,12 +1,12 @@
 import { test, expect } from 'vitest';
-import { createGame as create, join, move, snapshot, start, reset, tick, remainingMs, isAdminToken, openTreasure, answerTreasure, ranking, treasureLayout, ticketTotals } from '../server/game.js';
+import { createGame as create, join, move, snapshot, start, reset, tick, remainingMs, isAdminToken, openTreasure, answerTreasure, ranking, treasureLayout, inspectOffice, ticketTotals } from '../server/game.js';
 import * as map from '../shared/map.js';
 import { MIN_QUESTIONS } from '../shared/constants.js';
 import { validateQuestions } from '../server/questions.js';
 
 const T0 = 1_000_000;
 const MIN15 = 15 * 60 * 1000;
-const { SPAWN, TREASURE_SPOTS, PICKUP_TREASURE_SPOTS, NOTE_TREASURE_SPOTS } = map;
+const { SPAWN, TREASURE_SPOTS, PICKUP_TREASURE_SPOTS, NOTE_TREASURE_SPOTS, DESK_INTERACTIONS, CDRAGON } = map;
 const QS = (n = MIN_QUESTIONS) => Array.from({ length: n }, (_, i) => ({ id: 'q' + i, q: '문제 ' + i, choices: ['가', '나', '다'], answer: i % 3, explain: '설명 ' + i }));
 const createGame = (n) => create(MIN15, QS(n));
 
@@ -301,6 +301,46 @@ test.skipIf(!NOTE_TREASURE_SPOTS)('office ticket layout has twenty unique shared
   expect(PICKUP_TREASURE_SPOTS.filter(({ shared }) => shared)).toHaveLength(20);
   expect(PICKUP_TREASURE_SPOTS.filter(({ shared }) => !shared)).toHaveLength(1);
   expect(new Set(PICKUP_TREASURE_SPOTS.map(({ x, z }) => `${x},${z}`)).size).toBe(21);
+});
+
+test.skipIf(!NOTE_TREASURE_SPOTS)('office interactions keep clue, repeat, and unique seat progress per player', () => {
+  const g = create(MIN15, [], 0, NOTE_TREASURE_SPOTS);
+  const a = join(g, { name: 'A' }, T0).player;
+  const b = join(g, { name: 'B' }, T0).player;
+  const inspect = (player, id, now = T0 + 1000) => {
+    const target = id === CDRAGON.id ? CDRAGON : DESK_INTERACTIONS.find((desk) => desk.id === id);
+    Object.assign(player, { x: target.x, y: 0, z: target.z + (target.side ?? 1) * 2.1 });
+    return inspectOffice(g, player, id, now);
+  };
+  expect(inspect(a, 'benny').result).toBe('invalid');
+  start(g, T0);
+  expect(inspectOffice(g, b, 'dion', T0 + 1000).result).toBe('far');
+  expect(inspect(a, 'benny').result).toBe('look');
+  expect(inspect(a, 'cdragon').result).toBe('dialogue');
+  expect(inspect(b, 'benny').result).toBe('look');
+  expect(inspect(a, 'benny')).toMatchObject({ result: 'reward', score: 1 });
+  expect(inspect(a, 'benny').result).toBe('look');
+
+  const steps = Array.from({ length: 4 }, () => inspect(a, 'dion'));
+  expect(steps.every(({ result }) => result === 'look')).toBe(true);
+  expect(new Set(steps.map(({ text }) => text)).size).toBe(4);
+  expect(inspect(b, 'dion').text).toBe(steps[0].text);
+  expect(inspect(join(g, { token: a.token }, T0 + 2000).player, 'dion')).toMatchObject({ result: 'reward', score: 2 });
+  expect(inspect(a, 'dion').result).toBe('look');
+
+  expect(inspect(a, 'daisy').text).toContain(`(3/${DESK_INTERACTIONS.length})`);
+  for (const { id } of DESK_INTERACTIONS) {
+    if (id !== 'daisy') expect(inspect(a, id).result).toBe('look');
+  }
+  expect(inspect(b, 'daisy').result).toBe('look');
+  expect(inspect(a, 'daisy')).toMatchObject({ result: 'reward', score: 3 });
+  expect(inspect(a, 'daisy').result).toBe('look');
+  expect(inspect(a, 'daisy', g.endsAt).result).toBe('invalid');
+  reset(g);
+  start(g, T0 + 5000);
+  expect(inspect(a, 'benny', T0 + 6000).result).toBe('look');
+  expect(inspect(a, 'dion', T0 + 6000).text).toBe(steps[0].text);
+  expect(a.score).toBe(0);
 });
 
 test('ranking: score desc, tie goes to who got there first, zero scores hidden', () => {

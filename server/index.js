@@ -4,7 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { Server } from 'socket.io';
-import { createGame, join, move, snapshot, start, reset, tick, isAdminToken, openTreasure, answerTreasure, treasureLayout, setQuestions, ticketTotals } from './game.js';
+import { createGame, join, move, snapshot, start, reset, tick, isAdminToken, openTreasure, answerTreasure, treasureLayout, setQuestions, inspectOffice, ticketTotals } from './game.js';
 import { loadQuestions, saveQuestions, validateQuestions, MAX_QUESTIONS } from './questions.js';
 import { loadSettings, saveSettings, validateJoinUrl } from './settings.js';
 import { TICK_MS, GAME_SECONDS_DEFAULT, MIN_QUESTIONS, OPENING_MS } from '../shared/constants.js';
@@ -87,15 +87,18 @@ io.on('connection', (socket) => {
     if (!move(game, player, msg, Date.now())) socket.emit('player:correct', { x: player.x, z: player.z });
   });
 
-  socket.on('treasure:open', (msg, ack) => {
+  function handleNearbyAction(action, msg, ack) {
     if (typeof ack !== 'function' || !player || player.socketId !== socket.id) return;
     const now = Date.now();
     // the tap carries the freshest position; it still goes through the speed check
     if (Number.isFinite(msg?.x) && Number.isFinite(msg?.z)) move(game, player, { x: msg.x, z: msg.z, y: msg.y, ry: player.ry }, now);
-    const result = openTreasure(game, player, msg?.id, now);
+    const result = action(game, player, msg?.id, now);
     ack(result);
     if (result.shared) broadcast();
-  });
+  }
+
+  socket.on('treasure:open', (msg, ack) => handleNearbyAction(openTreasure, msg, ack));
+  socket.on('office:inspect', (msg, ack) => handleNearbyAction(inspectOffice, msg, ack));
 
   socket.on('treasure:answer', (msg, ack) => {
     if (typeof ack !== 'function' || !player || player.socketId !== socket.id) return;

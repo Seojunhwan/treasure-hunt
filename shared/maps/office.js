@@ -262,3 +262,24 @@ export const PICKUP_TREASURE_SPOTS = [
     ...spot, kind: 'note', shared: true,
   })),
 ];
+
+// Temporary seat assignments for the note-hunt playtest.
+const playtestSeats = {
+  25: { id: 'dion', name: '디온' },
+  41: { id: 'benny', name: '베니' },
+  49: { id: 'pebble', name: '페블' },
+  55: { id: 'daisy', name: '데이지' },
+};
+export const DESK_INTERACTIONS = deskPositions.map(({ x, z, side }, index) => ({
+  id: `desk-${index + 1}`,
+  ...playtestSeats[index],
+  ...scaledPoint({ x, z: z + side * 0.18 }),
+  y: (DESK.h + 0.33) * OFFICE_SCALE,
+  side,
+}));
+
+export const CDRAGON = {
+  id: 'cdragon', name: 'cdragon', variant: 'male-b',
+  ...scaledPoint({ x: officeCorridor.x - 1.3, z: 11.8 }),
+  y: 1.2, reach: 2.6,
+};

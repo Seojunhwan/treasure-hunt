@@ -2,24 +2,38 @@ import * as THREE from 'three';
 import { createAvatar, variantFor } from './avatar.js';
 import { createTrail } from './fx.js';
 
-export function makeLabel(text) {
+export function makeLabel(text, { nameplate = false } = {}) {
   const c = document.createElement('canvas');
   c.width = 256; c.height = 64;
   const g = c.getContext('2d');
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace; // without it the cream text was read as linear: far too bright
+  const font = nameplate ? '48px Jua' : '36px Jua';
   const draw = () => {
     g.clearRect(0, 0, 256, 64);
-    g.font = '36px Jua, system-ui, sans-serif';
+    g.font = `${font}, system-ui, sans-serif`;
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.lineWidth = 7; g.strokeStyle = 'rgba(20,14,10,.75)'; g.strokeText(text, 128, 34, 244);
-    g.fillStyle = '#fbf3e2'; g.fillText(text, 128, 34, 244);
+    if (nameplate) {
+      g.beginPath();
+      g.roundRect(12, 3, 232, 58, 12);
+      g.fillStyle = '#f8ce52';
+      g.fill();
+      g.lineWidth = 3;
+      g.strokeStyle = '#795919';
+      g.stroke();
+      g.fillStyle = '#302205';
+    } else {
+      g.lineWidth = 7; g.strokeStyle = 'rgba(20,14,10,.75)'; g.strokeText(text, 128, 34, 244);
+      g.fillStyle = '#fbf3e2';
+    }
+    g.fillText(text, 128, 34, nameplate ? 218 : 244);
     tex.needsUpdate = true;
   };
   draw();
-  document.fonts.load('36px Jua', text).then(draw); // redraw once the needed font slices arrive
+  document.fonts.load(font, text).then(draw); // redraw once the needed font slices arrive
   // dimmed under the bloom threshold so names read clearly instead of glowing like lamps
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, color: new THREE.Color(0.62, 0.62, 0.62) }));
+  const tint = nameplate ? 0.85 : 0.62;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, color: new THREE.Color(tint, tint, tint) }));
   sprite.scale.set(2, 0.5, 1);
   sprite.position.y = 2.1;
   return sprite;
