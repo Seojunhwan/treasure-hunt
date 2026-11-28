@@ -1,7 +1,7 @@
 import { verticalStep, ceilingAt } from '../shared/collision.js';
-import { JUMP_SPEED, HEAD_ROOM } from '../shared/constants.js';
+import { JUMP_SPEED, HEAD_ROOM, PLAYER_RADIUS, PLAYER_HEIGHT } from '../shared/constants.js';
 import { test, expect } from 'vitest';
-import { resolveCollision, clampToCircle, rayCast, heightAt, lineOfSight } from '../shared/collision.js';
+import { resolveCollision, resolvePlayerCollision, clampToCircle, rayCast, heightAt, lineOfSight } from '../shared/collision.js';
 import { COLLIDERS, SPAWN, MAP_HALF } from '../shared/map.js';
 
 const box = [{ x: 0, z: 0, w: 4, d: 4, h: 3 }]; // spans -2..2
@@ -15,6 +15,28 @@ test('slides: motion along the wall is kept, only the into-wall part is removed'
   const p = resolveCollision(-2.3, 1.0, r, 0, box);
   expect(p.x).toBeCloseTo(-2.5);
   expect(p.z).toBeCloseTo(1.0);
+});
+
+const otherPlayer = [{ x: 0, y: 0, z: 0 }];
+
+test('players stop at contact even if the requested step would pass through', () => {
+  const p = resolvePlayerCollision({ x: -1, y: 0, z: 0 }, { x: 1, z: 0 }, otherPlayer);
+  expect(p.x).toBeCloseTo(-2 * PLAYER_RADIUS);
+  expect(p.z).toBeCloseTo(0);
+  const waiting = { x: p.x, y: 0, z: p.z };
+  expect(resolvePlayerCollision(waiting, { x: 0, z: 0 }, otherPlayer).x).toBeCloseTo(waiting.x);
+});
+
+test('glancing player contact keeps sideways motion', () => {
+  const p = resolvePlayerCollision({ x: -1, y: 0, z: 0 }, { x: 0, z: 0.45 }, otherPlayer);
+  expect(p.z).toBeGreaterThan(0.45);
+  expect(Math.hypot(p.x, p.z)).toBeGreaterThan(2 * PLAYER_RADIUS);
+});
+
+test('players at different heights and players already overlapping can move freely', () => {
+  const step = { x: 0.1, z: 0 };
+  expect(resolvePlayerCollision({ x: 0, y: 0, z: 0 }, step, otherPlayer)).toBe(step);
+  expect(resolvePlayerCollision({ x: -1, y: PLAYER_HEIGHT, z: 0 }, step, otherPlayer)).toBe(step);
 });
 
 test('corner: pushed out diagonally to exactly r from the corner', () => {

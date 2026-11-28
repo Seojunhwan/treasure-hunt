@@ -1,4 +1,5 @@
 import { buildLoungeLayout } from './lounge.js';
+import { OFFICE_SEAT_ROWS } from './office-seats.js';
 
 // Plan view: +x is right, +z is down. A short passage connects the entrance to the lounge.
 export const MAP_THEME = 'office';
@@ -18,15 +19,21 @@ const DESK_BANKS = [
 const DESK = { w: 1.74, h: 0.82, d: 1.15 };
 const DESK_SPACING = 1.8;
 const deskPositions = [];
-for (const rowZ of deskRows) {
+for (const [island, rowZ] of deskRows.entries()) {
+  let bankOffset = 0;
   for (const { x, desksPerSide } of DESK_BANKS) {
     const firstX = x - (desksPerSide - 1) * DESK_SPACING / 2;
     for (let column = 0; column < desksPerSide; column++) {
       const seatX = firstX + column * DESK_SPACING;
       for (const side of [-1, 1]) {
-        deskPositions.push({ x: seatX, z: rowZ + side * DESK.d / 2, side, q: side < 0 ? 0 : 2 });
+        const seatRow = island * 2 + (side > 0 ? 1 : 0);
+        deskPositions.push({
+          x: seatX, z: rowZ + side * DESK.d / 2, side, q: side < 0 ? 0 : 2,
+          seatRow, seatColumn: bankOffset + column,
+        });
       }
     }
+    bankOffset += desksPerSide;
   }
 }
 
@@ -263,23 +270,20 @@ export const PICKUP_TREASURE_SPOTS = [
   })),
 ];
 
-// Temporary seat assignments for the note-hunt playtest.
-const playtestSeats = {
-  25: { id: 'dion', name: '디온' },
-  41: { id: 'benny', name: '베니' },
-  49: { id: 'pebble', name: '페블' },
-  55: { id: 'daisy', name: '데이지' },
-};
-export const DESK_INTERACTIONS = deskPositions.map(({ x, z, side }, index) => ({
-  id: `desk-${index + 1}`,
-  ...playtestSeats[index],
-  ...scaledPoint({ x, z: z + side * 0.18 }),
-  y: (DESK.h + 0.33) * OFFICE_SCALE,
-  side,
-}));
+export const DESK_INTERACTIONS = deskPositions.map(({ x, z, side, seatRow, seatColumn }, index) => {
+  const [name, line] = OFFICE_SEAT_ROWS[seatRow]?.[seatColumn] ?? [];
+  return {
+    id: name ?? `desk-${index + 1}`, name, line, seatRow, seatColumn,
+    ...scaledPoint({ x, z: z + side * 0.18 }),
+    y: (DESK.h + 0.33) * OFFICE_SCALE,
+    side,
+  };
+});
 
+const cdragonDesk = DESK_INTERACTIONS.find(({ id }) => id === 'cdragon.cd');
 export const CDRAGON = {
-  id: 'cdragon', name: 'cdragon', variant: 'male-b',
-  ...scaledPoint({ x: officeCorridor.x - 1.3, z: 11.8 }),
+  id: 'cdragon', name: 'cdragon.cd', variant: 'male-b',
+  x: cdragonDesk.x, z: cdragonDesk.z + cdragonDesk.side * 2.2,
+  ry: cdragonDesk.side > 0 ? Math.PI : 0,
   y: 1.2, reach: 2.6,
 };

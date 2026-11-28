@@ -1,5 +1,5 @@
 // Phones: left half of the screen is a floating joystick, right half drags the camera.
-// Desktop: WASD/arrows move. Drag the camera, or toggle free look.
+// Desktop: WASD/arrows move, and the first play gesture enables free look.
 const RADIUS = 50; // px the knob can travel
 
 // iPadOS Safari claims to be a Mac, so a touch-capable "Mac" is still a tablet
@@ -12,26 +12,34 @@ export function createControls(el, { canFreeLook, onFreeLookChange, onFreeLookEr
   const keys = new Set();
   let stickId = null, lookId = null, origin = null, last = null;
   const freeLookAvailable = isDesktop && typeof el.requestPointerLock === 'function';
-  let awaitingLock = false;
+  let awaitingLock = false, autoFreeLook = freeLookAvailable;
   const freeLookActive = () => document.pointerLockElement === el;
-  const exitFreeLook = () => {
-    if (freeLookActive()) document.exitPointerLock();
+  const exitFreeLook = (resume = false) => {
+    if (!freeLookActive()) return;
+    autoFreeLook = resume;
+    document.exitPointerLock();
   };
   function freeLookFailed() {
     if (!awaitingLock) return;
     awaitingLock = false;
     onFreeLookError();
   }
-  function toggleFreeLook() {
-    if (!freeLookAvailable) return;
-    if (freeLookActive()) { exitFreeLook(); return; }
-    if (awaitingLock || !canFreeLook()) return;
+  function requestFreeLook() {
+    if (!freeLookAvailable || awaitingLock || freeLookActive() || !canFreeLook()) return;
     awaitingLock = true;
+    autoFreeLook = false;
     try {
       el.requestPointerLock()?.catch(freeLookFailed);
     } catch {
       freeLookFailed();
     }
+  }
+  function startFreeLook() {
+    if (autoFreeLook) requestFreeLook();
+  }
+  function toggleFreeLook() {
+    if (freeLookActive()) exitFreeLook();
+    else requestFreeLook();
   }
 
   if (freeLookAvailable) {
@@ -40,7 +48,7 @@ export function createControls(el, { canFreeLook, onFreeLookChange, onFreeLookEr
       lookId = null;
       look.dx = look.dy = 0;
       onFreeLookChange(freeLookActive());
-      if (!canFreeLook()) exitFreeLook();
+      if (!canFreeLook()) exitFreeLook(true);
     });
     document.addEventListener('pointerlockerror', freeLookFailed);
     document.addEventListener('mousemove', (e) => {
@@ -63,6 +71,7 @@ export function createControls(el, { canFreeLook, onFreeLookChange, onFreeLookEr
       toggleFreeLook();
       return;
     }
+    if (e.pointerType === 'mouse' && e.button === 0) startFreeLook();
     if (freeLookActive()) return;
     if (!isDesktop && e.clientX < innerWidth / 2 && stickId === null) {
       stickId = e.pointerId;
@@ -102,12 +111,17 @@ export function createControls(el, { canFreeLook, onFreeLookChange, onFreeLookEr
   el.addEventListener('pointercancel', end);
   el.addEventListener('contextmenu', (e) => e.preventDefault());
 
-  addEventListener('keydown', (e) => keys.add(e.code));
+  const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight']);
+  addEventListener('keydown', (e) => {
+    keys.add(e.code);
+    if (!e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey && movementKeys.has(e.code)) startFreeLook();
+  });
   addEventListener('keyup', (e) => keys.delete(e.code));
   addEventListener('blur', () => keys.clear());
 
   return {
     freeLookAvailable,
+    startFreeLook,
     toggleFreeLook,
     exitFreeLook,
     // Joystick wins over keyboard; both give x/y in [-1, 1].

@@ -1,5 +1,5 @@
 import * as map from './map.js';
-import { PLAYER_HEIGHT, STEP_HEIGHT, GRAVITY, MAX_FALL, HEAD_ROOM } from './constants.js';
+import { PLAYER_RADIUS, PLAYER_HEIGHT, STEP_HEIGHT, GRAVITY, MAX_FALL, HEAD_ROOM } from './constants.js';
 
 const { MAP_HALF, COLLIDERS, PLATFORMS, RAMPS, GROUND_LEVELS = [] } = map;
 export const MIN_GROUND_Y = Math.min(0, ...GROUND_LEVELS.map(({ y }) => y));
@@ -32,6 +32,39 @@ export function resolveCollision(x, z, r, y = 0, boxes = COLLIDERS) {
   }
   const lim = MAP_HALF - r;
   return { x: clamp(x, -lim, lim), z: clamp(z, -lim, lim) };
+}
+
+export function firstPlayerContact(from, to, players) {
+  const dx = to.x - from.x, dz = to.z - from.z;
+  const lengthSquared = dx * dx + dz * dz;
+  if (!lengthSquared) return null;
+  let time = 1, blocker = null;
+  for (const other of players) {
+    if (Math.abs(from.y - other.y) >= PLAYER_HEIGHT) continue;
+    const x = from.x - other.x, z = from.z - other.z;
+    const radius = 2 * PLAYER_RADIUS;
+    const gap = x * x + z * z - radius * radius;
+    const approach = x * dx + z * dz;
+    // Players already overlapping on spawn or after interpolation can walk apart.
+    if (gap < -1e-8 || approach >= -1e-8) continue;
+    const discriminant = approach * approach - gap * lengthSquared;
+    if (discriminant <= 0) continue;
+    const hit = Math.max(0, (-approach - Math.sqrt(discriminant)) / lengthSquared);
+    if (hit < time) { time = hit; blocker = other; }
+  }
+  return blocker ? { x: from.x + dx * time, y: from.y, z: from.z + dz * time, blocker } : null;
+}
+
+// Stop at contact and keep only the sideways part of the remaining step.
+export function resolvePlayerCollision(from, to, players) {
+  const contact = firstPlayerContact(from, to, players);
+  if (!contact) return to;
+  const normalX = (contact.x - contact.blocker.x) / (2 * PLAYER_RADIUS);
+  const normalZ = (contact.z - contact.blocker.z) / (2 * PLAYER_RADIUS);
+  const into = (to.x - contact.x) * normalX + (to.z - contact.z) * normalZ;
+  const slide = { x: to.x - normalX * into, z: to.z - normalZ * into };
+  const nextContact = firstPlayerContact(contact, slide, players);
+  return nextContact ? { x: nextContact.x, z: nextContact.z } : slide;
 }
 
 const inside = (s, x, z) => Math.abs(x - s.x) <= s.w / 2 && Math.abs(z - s.z) <= s.d / 2;

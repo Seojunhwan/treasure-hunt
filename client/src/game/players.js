@@ -1,8 +1,9 @@
 import * as THREE from 'three';
+import { PLAYER_RADIUS } from '../../../shared/constants.js';
 import { createAvatar, variantFor } from './avatar.js';
 import { createTrail } from './fx.js';
 
-export function makeLabel(text, { nameplate = false } = {}) {
+function makeLabelTexture(text, nameplate) {
   const c = document.createElement('canvas');
   c.width = 256; c.height = 64;
   const g = c.getContext('2d');
@@ -31,12 +32,35 @@ export function makeLabel(text, { nameplate = false } = {}) {
   };
   draw();
   document.fonts.load(font, text).then(draw); // redraw once the needed font slices arrive
+  return tex;
+}
+
+export function makeLabel(text) {
   // dimmed under the bloom threshold so names read clearly instead of glowing like lamps
-  const tint = nameplate ? 0.85 : 0.62;
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, color: new THREE.Color(tint, tint, tint) }));
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: makeLabelTexture(text, false), depthWrite: false, color: new THREE.Color(0.62, 0.62, 0.62),
+  }));
   sprite.scale.set(2, 0.5, 1);
   sprite.position.y = 2.1;
   return sprite;
+}
+
+const nameplateThickness = 0.04;
+const nameplateBody = new THREE.BoxGeometry(1.33, 0.33, nameplateThickness);
+const nameplateFace = new THREE.PlaneGeometry(1.44, 0.36);
+const nameplateEdge = new THREE.MeshLambertMaterial({ color: 0xb88b2b });
+
+export function makeDeskNameplate(name, monitor, side) {
+  const plate = new THREE.Group();
+  const front = new THREE.Mesh(nameplateFace, new THREE.MeshBasicMaterial({
+    map: makeLabelTexture(name, true), alphaTest: 0.45, color: new THREE.Color(0.85, 0.85, 0.85),
+  }));
+  front.position.z = nameplateThickness / 2 + 0.001;
+  plate.add(new THREE.Mesh(nameplateBody, nameplateEdge), front);
+  plate.rotation.y = side < 0 ? Math.PI : 0;
+  // The Kenney screen tilts, so its top edge sits off the footprint center.
+  plate.position.set(monitor.x, monitor.y + monitor.h + 0.15, monitor.z + side * monitor.d * 0.22);
+  return plate;
 }
 
 // Other players are drawn a little in the past (DELAY) so there are always two snapshots to blend
@@ -96,11 +120,11 @@ export function createRemotePlayers(scene, fx) {
       }
     },
     pickUp(id) { others.get(id)?.avatar.pickUp(); },
-    // where everyone is and how fast they move, for pushable props
+    // Rendered player positions for body collisions and pushable props.
     pushers(out) {
       for (const o of others.values()) {
         const p = o.avatar.root.position;
-        out.push({ x: p.x, z: p.z, vx: o.vx ?? 0, vz: o.vz ?? 0, r: 0.4 });
+        out.push({ x: p.x, y: p.y, z: p.z, vx: o.vx ?? 0, vz: o.vz ?? 0, r: PLAYER_RADIUS });
       }
       return out;
     },

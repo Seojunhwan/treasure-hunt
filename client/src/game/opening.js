@@ -16,7 +16,6 @@ export function createOpening(scene, leader, card) {
   camera.position.set(leader.x - 2.4, 2.9, leader.z + 4.7);
   const target = new THREE.Vector3(leader.x - 0.55, 1.3, leader.z + 0.45);
   camera.lookAt(target);
-  const yaw = Math.atan2(camera.position.x - target.x, camera.position.z - target.z);
   const line = card.querySelector('p');
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const gifts = new THREE.Group();
@@ -70,10 +69,6 @@ export function createOpening(scene, leader, card) {
     blendCamera(view, amount) {
       view.position.lerp(camera.position, amount);
       view.quaternion.slerp(camera.quaternion, amount);
-    },
-    movementYaw(normalYaw, amount) {
-      const delta = yaw - normalYaw;
-      return normalYaw + Math.atan2(Math.sin(delta), Math.cos(delta)) * amount;
     },
   };
 }

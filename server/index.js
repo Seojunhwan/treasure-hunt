@@ -84,14 +84,20 @@ io.on('connection', (socket) => {
 
   socket.on('player:move', (msg) => {
     if (!player || player.socketId !== socket.id) return;
-    if (!move(game, player, msg, Date.now())) socket.emit('player:correct', { x: player.x, z: player.z });
+    updatePlayerPosition(msg, Date.now());
   });
+
+  function updatePlayerPosition(msg, now) {
+    if (!move(game, player, msg, now) || Math.hypot(player.x - msg.x, player.z - msg.z) > 0.005) {
+      socket.emit('player:correct', { x: player.x, z: player.z });
+    }
+  }
 
   function handleNearbyAction(action, msg, ack) {
     if (typeof ack !== 'function' || !player || player.socketId !== socket.id) return;
     const now = Date.now();
     // the tap carries the freshest position; it still goes through the speed check
-    if (Number.isFinite(msg?.x) && Number.isFinite(msg?.z)) move(game, player, { x: msg.x, z: msg.z, y: msg.y, ry: player.ry }, now);
+    if (Number.isFinite(msg?.x) && Number.isFinite(msg?.z)) updatePlayerPosition({ x: msg.x, z: msg.z, y: msg.y, ry: player.ry }, now);
     const result = action(game, player, msg?.id, now);
     ack(result);
     if (result.shared) broadcast();

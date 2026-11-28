@@ -61,6 +61,41 @@ const propScale = {
   radio: 1.1,
 };
 
+export function createDeskHighlight(scene, furniture) {
+  const desks = furniture.filter(({ name }) => name === 'desk');
+  const border = new THREE.Shape();
+  border.moveTo(-0.49, -0.48);
+  border.lineTo(0.49, -0.48);
+  border.lineTo(0.49, 0.48);
+  border.lineTo(-0.49, 0.48);
+  border.closePath();
+  const opening = new THREE.Path();
+  opening.moveTo(-0.465, -0.435);
+  opening.lineTo(-0.465, 0.435);
+  opening.lineTo(0.465, 0.435);
+  opening.lineTo(0.465, -0.435);
+  opening.closePath();
+  border.holes.push(opening);
+  const mesh = new THREE.Mesh(new THREE.ShapeGeometry(border),
+    new THREE.MeshBasicMaterial({ color: 0xf2bc45, transparent: true, opacity: 0.82, depthWrite: false }));
+  mesh.name = 'Desk selection';
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.visible = false;
+  scene.add(mesh);
+  let selected = null;
+  return {
+    set(desk) {
+      if (desk === selected) return;
+      selected = desk;
+      const surface = desk && desks.find(({ x, z }) => x === desk.x && Math.abs(z - desk.z) < 0.5);
+      mesh.visible = !!surface;
+      if (!surface) return;
+      mesh.position.set(surface.x, surface.y + surface.h + 0.013, surface.z);
+      mesh.scale.set(surface.w, surface.d, 1);
+    },
+  };
+}
+
 export async function addDeskDetails(scene, mergeStatic) {
   const { deskPartitions, deskSections } = OFFICE_LAYOUT;
   const details = new THREE.Group();

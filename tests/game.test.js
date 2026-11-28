@@ -62,12 +62,30 @@ test('move: normal speed accepted, teleport rejected, garbage rejected', () => {
   expect(move(g, p, null, T0 + 300)).toBe(false);
 });
 
-test('move: clamped to spawn plaza while waiting', () => {
+test('move: the office waiting room can be explored beyond spawn', () => {
   const g = createGame();
   const p = join(g, { name: 'a' }, T0).player;
-  Object.assign(p, { x: SPAWN.x + SPAWN.r - 0.5, z: SPAWN.z });
-  move(g, p, { x: SPAWN.x + SPAWN.r + 0.3, z: SPAWN.z, ry: 0 }, T0 + 1000);
-  expect(p.x).toBeCloseTo(SPAWN.x + SPAWN.r);
+  const z = SPAWN.z - SPAWN.r - 0.3;
+  Object.assign(p, { x: SPAWN.x, z: SPAWN.z - SPAWN.r + 0.5 });
+  expect(move(g, p, { x: SPAWN.x, z, ry: 0 }, T0 + 1000)).toBe(true);
+  expect(p.z).toBeCloseTo(map.MAP_THEME === 'office' ? z : SPAWN.z - SPAWN.r);
+  expect(treasureLayout(g)).toEqual([]);
+});
+
+test('move: two players moving toward one another cannot cross on the server', () => {
+  const g = createGame();
+  g.phase = 'playing';
+  const a = join(g, { name: 'a' }, T0).player;
+  const b = join(g, { name: 'b' }, T0).player;
+  Object.assign(a, { x: 0, y: 0, z: 0 });
+  Object.assign(b, { x: 1, y: 0, z: 0 });
+  expect(move(g, a, { x: 0.5, z: 0, ry: 0 }, T0 + 100)).toBe(true);
+  expect(move(g, b, { x: 0.5, z: 0, ry: 0 }, T0 + 100)).toBe(true);
+  expect(a.x).toBeCloseTo(0.2);
+  expect(b.x).toBeCloseTo(1);
+  b.online = false;
+  expect(move(g, a, { x: 0.7, z: 0, ry: 0 }, T0 + 200)).toBe(true);
+  expect(a.x).toBeCloseTo(0.7);
 });
 
 test('snapshot lists online players only and never leaks tokens', () => {
@@ -101,19 +119,22 @@ test('ended: movement frozen', () => {
 test('opening holds players and treasures until the full round starts', () => {
   const g = create(MIN15, QS(), 6500);
   const p = join(g, { name: 'a' }, T0).player;
-  Object.assign(p, { x: SPAWN.x + SPAWN.r, z: SPAWN.z });
+  const openingX = map.MAP_THEME === 'office' ? SPAWN.x : SPAWN.x + SPAWN.r;
+  const openingZ = map.MAP_THEME === 'office' ? SPAWN.z - SPAWN.r - 3 : SPAWN.z;
+  Object.assign(p, { x: openingX, z: openingZ });
   expect(start(g, T0).ok).toBe(true);
   expect(start(g, T0 + 100).error).toBeTruthy();
   expect(snapshot(g, T0 + 1500)).toMatchObject({ phase: 'opening', openingRemainingMs: 5000, remainingMs: MIN15, treasureCount: 0 });
   expect(treasureLayout(g)).toEqual([]);
   expect(move(g, p, { x: p.x + 0.4, z: p.z, ry: 0 }, T0 + 100)).toBe(true);
-  expect(p.x).toBeCloseTo(SPAWN.x + SPAWN.r);
+  expect(p.x).toBeCloseTo(openingX);
+  expect(p.z).toBeCloseTo(openingZ);
   expect(openTreasure(g, p, 0, T0 + 100).result).toBe('invalid');
   expect(tick(g, T0 + 6499)).toBe(false);
   expect(tick(g, T0 + 6540)).toBe(true);
   expect(snapshot(g, T0 + 6540)).toMatchObject({ phase: 'playing', openingRemainingMs: 0, remainingMs: MIN15, treasureCount: MIN_QUESTIONS });
   expect(move(g, p, { x: p.x + 0.4, z: p.z, ry: 0 }, T0 + 6550)).toBe(true);
-  expect(p.x).toBeGreaterThan(SPAWN.x + SPAWN.r);
+  expect(p.x).toBeCloseTo(openingX + 0.4);
   expect(tick(g, T0 + 6640)).toBe(false);
 });
 
@@ -303,7 +324,7 @@ test.skipIf(!NOTE_TREASURE_SPOTS)('office ticket layout has twenty unique shared
   expect(new Set(PICKUP_TREASURE_SPOTS.map(({ x, z }) => `${x},${z}`)).size).toBe(21);
 });
 
-test.skipIf(!NOTE_TREASURE_SPOTS)('office interactions keep clue, repeat, and unique seat progress per player', () => {
+test.skipIf(!NOTE_TREASURE_SPOTS)('office interactions keep NPC rewards, repeat, and unique seat progress per player', () => {
   const g = create(MIN15, [], 0, NOTE_TREASURE_SPOTS);
   const a = join(g, { name: 'A' }, T0).player;
   const b = join(g, { name: 'B' }, T0).player;
@@ -312,35 +333,44 @@ test.skipIf(!NOTE_TREASURE_SPOTS)('office interactions keep clue, repeat, and un
     Object.assign(player, { x: target.x, y: 0, z: target.z + (target.side ?? 1) * 2.1 });
     return inspectOffice(g, player, id, now);
   };
-  expect(inspect(a, 'benny').result).toBe('invalid');
+  expect(inspect(a, 'benny.ahn').result).toBe('invalid');
+  expect(inspect(a, CDRAGON.id).result).toBe('invalid');
   start(g, T0);
-  expect(inspectOffice(g, b, 'dion', T0 + 1000).result).toBe('far');
-  expect(inspect(a, 'benny').result).toBe('look');
-  expect(inspect(a, 'cdragon').result).toBe('dialogue');
-  expect(inspect(b, 'benny').result).toBe('look');
-  expect(inspect(a, 'benny')).toMatchObject({ result: 'reward', score: 1 });
-  expect(inspect(a, 'benny').result).toBe('look');
+  expect(inspectOffice(g, b, 'dion.ho', T0 + 1000).result).toBe('far');
+  expect(inspectOffice(g, b, CDRAGON.id, T0 + 1000).result).toBe('far');
+  expect(inspect(a, 'benny.ahn').result).toBe('look');
+  expect(inspect(a, CDRAGON.id)).toMatchObject({ result: 'reward', title: 'cdragon.cd', score: 1 });
+  expect(inspect(join(g, { token: a.token }, T0 + 1200).player, CDRAGON.id, T0 + 1200))
+    .toMatchObject({ result: 'dialogue', score: 1 });
+  expect(b.score).toBe(0);
+  expect(inspect(b, CDRAGON.id)).toMatchObject({ result: 'reward', score: 1 });
+  expect(inspect(a, 'benny.ahn').result).toBe('look');
+  expect(inspect(a, 'cdragon.cd')).toMatchObject({ result: 'look', title: 'cdragon.cd의 자리' });
 
-  const steps = Array.from({ length: 4 }, () => inspect(a, 'dion'));
+  const steps = Array.from({ length: 4 }, () => inspect(a, 'dion.ho'));
   expect(steps.every(({ result }) => result === 'look')).toBe(true);
   expect(new Set(steps.map(({ text }) => text)).size).toBe(4);
-  expect(inspect(b, 'dion').text).toBe(steps[0].text);
-  expect(inspect(join(g, { token: a.token }, T0 + 2000).player, 'dion')).toMatchObject({ result: 'reward', score: 2 });
-  expect(inspect(a, 'dion').result).toBe('look');
+  expect(inspect(b, 'dion.ho').text).toBe(steps[0].text);
+  expect(inspect(join(g, { token: a.token }, T0 + 2000).player, 'dion.ho')).toMatchObject({ result: 'reward', score: 2 });
+  expect(inspect(a, 'dion.ho').result).toBe('look');
 
-  expect(inspect(a, 'daisy').text).toContain(`(3/${DESK_INTERACTIONS.length})`);
+  expect(inspect(a, 'daisy.dani').text).toContain(`(4/${DESK_INTERACTIONS.length})`);
   for (const { id } of DESK_INTERACTIONS) {
-    if (id !== 'daisy') expect(inspect(a, id).result).toBe('look');
+    if (id !== 'daisy.dani') expect(inspect(a, id).result).toBe('look');
   }
-  expect(inspect(b, 'daisy').result).toBe('look');
-  expect(inspect(a, 'daisy')).toMatchObject({ result: 'reward', score: 3 });
-  expect(inspect(a, 'daisy').result).toBe('look');
-  expect(inspect(a, 'daisy', g.endsAt).result).toBe('invalid');
+  expect(inspect(b, 'daisy.dani').result).toBe('look');
+  expect(inspect(a, 'daisy.dani')).toMatchObject({ result: 'reward', score: 3 });
+  expect(inspect(a, 'daisy.dani').result).toBe('look');
+  expect(inspect(a, 'daisy.dani', g.endsAt).result).toBe('invalid');
   reset(g);
   start(g, T0 + 5000);
-  expect(inspect(a, 'benny', T0 + 6000).result).toBe('look');
-  expect(inspect(a, 'dion', T0 + 6000).text).toBe(steps[0].text);
+  expect(inspect(a, 'benny.ahn', T0 + 6000).result).toBe('look');
+  expect(inspect(a, 'dion.ho', T0 + 6000).text).toBe(steps[0].text);
+  expect(inspect(a, 'pebble.stone', T0 + 6000)).toMatchObject({
+    title: 'pebble.stone의 자리', text: '청소가 조금 필요해 보인다.',
+  });
   expect(a.score).toBe(0);
+  expect(inspect(a, CDRAGON.id, T0 + 6000)).toMatchObject({ result: 'reward', score: 1 });
 });
 
 test('ranking: score desc, tie goes to who got there first, zero scores hidden', () => {

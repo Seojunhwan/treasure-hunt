@@ -1,10 +1,11 @@
 import { randomUUID, timingSafeEqual, createHash } from 'node:crypto';
 import { MOVE_SPEED, NAME_MAX, SPEED_TOLERANCE, PICKUP_RADIUS, PICKUP_TOLERANCE, PICKUP_HEIGHT, RANKING_SIZE, MIN_QUESTIONS, QUIZ_SECONDS } from '../shared/constants.js';
 import * as map from '../shared/map.js';
-import { clampToCircle, treasureInSight, MIN_GROUND_Y } from '../shared/collision.js';
+import { clampToCircle, firstPlayerContact, treasureInSight, MIN_GROUND_Y } from '../shared/collision.js';
 import { interactionInReach } from '../shared/office-interactions.js';
 
 const { SPAWN, TREASURE_SPOTS, DESK_INTERACTIONS = [], CDRAGON } = map;
+const officeLobby = map.MAP_THEME === 'office';
 const officeTargets = new Map([...DESK_INTERACTIONS, ...[CDRAGON].filter(Boolean)].map((target) => [target.id, target]));
 
 const QUIZ_MS = QUIZ_SECONDS * 1000;
@@ -55,7 +56,7 @@ function beginHunt(state, now, rand) {
   state.phase = 'playing';
   state.openingEndsAt = 0;
   state.endsAt = now + state.durationMs;
-  for (const p of state.players.values()) { p.lastMoveAt = now; p.attempts = new Map(); p.tried = new Set(); } // leaving the plaza is not a teleport
+  for (const p of state.players.values()) { p.lastMoveAt = now; p.attempts = new Map(); p.tried = new Set(); }
 }
 
 export const treasureLayout = (state) => state.treasures.map(({ id, x, y, z, kind, cover }) => ({
@@ -152,8 +153,14 @@ export function move(state, player, msg, now) {
   const dt = Math.min((now - player.lastMoveAt) / 1000, 1);
   const allowed = MOVE_SPEED * SPEED_TOLERANCE * dt + 0.5; // +0.5 m absorbs network jitter
   if (Math.hypot(x - player.x, z - player.z) > allowed) return false;
-  const p = state.phase !== 'playing' ? clampToCircle(x, z, SPAWN) : { x, z };
-  Object.assign(player, p, { y, ry, air: msg.air === true, lastMoveAt: now });
+  let desired = { x, z };
+  if (state.phase !== 'playing') {
+    if (!officeLobby) desired = clampToCircle(x, z, SPAWN);
+    else if (state.phase === 'opening') desired = { x: player.x, z: player.z };
+  }
+  const others = [...state.players.values()].filter((other) => other !== player && other.online);
+  const p = firstPlayerContact({ x: player.x, y, z: player.z }, desired, others) ?? desired;
+  Object.assign(player, { x: p.x, y, z: p.z, ry, air: msg.air === true, lastMoveAt: now });
   return true;
 }
 
@@ -166,7 +173,7 @@ function addPoint(player, now) {
 }
 
 const dionSearch = [
-  '컵 받침 아래에 작은 화살표가 그려져 있다. 서랍을 가리키는 것 같다.',
+  '화분 받침 옆에 작은 화살표가 그려져 있다. 서랍을 가리키는 것 같다.',
   '첫 번째 서랍엔 충전 케이블뿐이다. 서랍 안쪽에 종이 귀퉁이가 보인다.',
   '종이를 당겨 보니 책상 밑을 가리키는 화살표가 하나 더 나왔다.',
   '책상 밑에 테이프로 붙인 봉투가 있다. 한 번 더 살펴보면 뗄 수 있겠다.',
@@ -177,16 +184,8 @@ export function inspectOffice(state, player, id, now) {
   const target = officeTargets.get(id);
   if (!state.noteHunt || state.phase !== 'playing' || now >= state.endsAt || !target) return { result: 'invalid' };
   if (!interactionInReach(player, target, PICKUP_TOLERANCE)) return { result: 'far' };
-  const progress = player.exploration ??= { desks: new Set(), rewards: new Set(), heardCdragon: false, dionVisits: 0 };
-  if (target === CDRAGON) {
-    progress.heardCdragon = true;
-    return { result: 'dialogue', title: CDRAGON.name, text: '제 선물은 베니 자리에 맡겨 뒀어요. 입구에서 두 번째 업무석 줄, 오른쪽 복도에 가장 가까운 칸이에요.' };
-  }
-
-  const allDesksSeen = progress.desks.size === DESK_INTERACTIONS.length;
-  progress.desks.add(id);
-  const title = target.name ? `${target.name}의 자리` : '업무석';
-  if (progress.rewards.has(id)) return { result: 'look', title, text: '여기서 찾은 보물은 이미 챙겼다.', score: player.score };
+  const progress = player.exploration ??= { desks: new Set(), rewards: new Set(), dionVisits: 0 };
+  const title = target === CDRAGON ? target.name : target.name ? `${target.name}의 자리` : '업무석';
   const look = (text) => ({ result: 'look', title, text });
   const reward = (text) => {
     progress.rewards.add(id);
@@ -194,23 +193,28 @@ export function inspectOffice(state, player, id, now) {
     return { result: 'reward', title, text, score: player.score };
   };
 
+  if (target === CDRAGON) {
+    if (progress.rewards.has(id)) return { result: 'dialogue', title, text: '아까 드린 응모권 잘 챙겼죠? 남은 보물도 찾아봐요!', score: player.score };
+    return reward('송년회에 와줘서 고마워요. 제 선물로 응모권 한 장 받아 가요!');
+  }
+
+  const allDesksSeen = progress.desks.size === DESK_INTERACTIONS.length;
+  progress.desks.add(id);
+  if (progress.rewards.has(id)) return { result: 'look', title, text: '여기서 찾은 보물은 이미 챙겼다.', score: player.score };
+
   switch (id) {
-    case 'benny':
-      return progress.heardCdragon
-        ? reward('키보드 옆에 cdragon이 맡겨 둔 봉투가 있다.')
-        : look('자리를 비운 베니의 모니터가 절전 모드에 들어가 있다.');
-    case 'daisy':
+    case 'benny.ahn':
+      return look('자리를 비운 베니의 모니터가 절전 모드에 들어가 있다.');
+    case 'daisy.dani':
       return allDesksSeen
         ? reward('데이지가 사무실 한 바퀴를 다 돈 사람을 위해 쪽지를 남겨 뒀다.')
         : look(`메모가 있다. “사무실의 모든 자리를 둘러보고 다시 와요.” (${progress.desks.size}/${DESK_INTERACTIONS.length})`);
-    case 'dion': {
+    case 'dion.ho': {
       const text = dionSearch[progress.dionVisits++];
       return progress.dionVisits === dionSearch.length ? reward(text) : look(text);
     }
-    case 'pebble':
-      return look('페블의 자리다. 청소가 조금 필요해 보인다.');
     default:
-      return look('책상 위에는 모니터와 자잘한 소품들이 놓여 있다.');
+      return look(target.line ?? '빈 자리다. 책상 위에는 모니터와 자잘한 소품들이 놓여 있다.');
   }
 }
 
